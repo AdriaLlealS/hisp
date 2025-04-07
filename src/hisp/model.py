@@ -222,6 +222,11 @@ class Model:
                     value = pulse.duration_no_waiting / 10
             elif pulse.pulse_type == "BAKE":
                 value = pulse.duration_no_waiting / 10
+            elif pulse.pulse_type == "FP_D":
+                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
+                    value = 0.001  # s
+                else:
+                    value = pulse.duration_no_waiting / 10
             else:
                 value = pulse.duration_no_waiting / 100
         return periodic_step_function(
@@ -328,7 +333,7 @@ class Model:
         if pulse.pulse_type == "GDC" or pulse.pulse_type == "ICWC":
             rtol = 1e-11
         elif pulse.pulse_type == "BAKE":
-            rtol = 1e-11
+            rtol = 1e-12
         elif pulse.pulse_type == "FP":
             # rtol = 1e-10
             if relative_time % pulse.total_duration > pulse.duration_no_waiting:
