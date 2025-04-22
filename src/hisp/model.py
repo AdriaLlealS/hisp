@@ -340,6 +340,8 @@ class Model:
                 rtol = 1e-12  # 1e-12
             else:
                 rtol = 1e-6  # 1e-6
+        elif pulse.pulse_type == "RISP":
+            rtol = 1e-8
         else:
             rtol = 1e-10
         return rtol
