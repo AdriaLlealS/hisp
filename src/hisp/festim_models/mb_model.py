@@ -817,8 +817,8 @@ def make_DFW_mb_model(
 
     ############# Settings #############
     my_model.settings = F.Settings(
-        atol=1e10,
-        rtol=1e-10,
+        atol=1e5,
+        rtol=1e-11,
         max_iterations=30,
         final_time=final_time,
     )
