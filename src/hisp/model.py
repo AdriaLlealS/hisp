@@ -351,7 +351,7 @@ class Model:
         if pulse.pulse_type == "BAKE":
             rtol = 1e-12
         elif pulse.pulse_type == "GDC" or pulse.pulse_type == "ICWC":
-            rtol = 1e-11
+            rtol = 1e-14
         else:
             rtol = 1e-8
         return rtol
