@@ -339,7 +339,7 @@ class Model:
             if relative_time % pulse.total_duration > pulse.duration_no_waiting:
                 rtol = 1e-12  # 1e-12
             else:
-                rtol = 1e-10  # 1e-6 or 1e-8
+                rtol = 1e-11  # 1e-6 or 1e-8
         elif pulse.pulse_type == "RISP":
             rtol = 1e-10
         else:
