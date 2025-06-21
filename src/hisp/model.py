@@ -338,12 +338,12 @@ class Model:
             # rtol = 1e-10
             if relative_time % pulse.total_duration > pulse.duration_no_waiting:
                 rtol = 1e-12  # 1e-12
-            elif pulse.pulse_type == "FP_D":
-                rtol = 1e-9
+            # elif pulse.pulse_type == "FP_D":
+            #     rtol = 1e-9
             else:
                 rtol = 1e-8  # 1e-6 or 1e-8 or 1e-10 most recently
         elif pulse.pulse_type == "RISP":
-            rtol = 1e-8
+            rtol = 1e-7
         else:
             rtol = 1e-10
         return rtol
