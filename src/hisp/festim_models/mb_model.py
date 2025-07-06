@@ -232,7 +232,7 @@ def make_W_mb_model(
     surface_reaction_dd = F.SurfaceReactionBC(
         reactant=[mobile_D, mobile_D],
         gas_pressure=0,
-        k_r0=7.94e-17,
+        k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
         E_kr=-2,
         k_d0=0,
         E_kd=0,
@@ -818,7 +818,7 @@ def make_DFW_mb_model(
     ############# Settings #############
     my_model.settings = F.Settings(
         atol=1e5,
-        rtol=1e-12,
+        rtol=1e-10,
         max_iterations=30,
         final_time=final_time,
     )
