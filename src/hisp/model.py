@@ -333,7 +333,7 @@ class Model:
         if pulse.pulse_type == "GDC" or pulse.pulse_type == "ICWC":
             rtol = 1e-13  # 1e-12 for just glow scenario
         elif pulse.pulse_type == "BAKE":
-            rtol = 1e-14  # 1e-15 for just glow scenario
+            rtol = 1e-13  # 1e-15 for just glow scenario
         elif pulse.pulse_type == "FP" or pulse.pulse_type == "FP_D":
             # rtol = 1e-10
             if relative_time % pulse.total_duration > pulse.duration_no_waiting:
@@ -341,7 +341,7 @@ class Model:
             elif pulse.pulse_type == "FP_D":
                 rtol = 1e-9
             else:
-                rtol = 1e-8  # 1e-6 or 1e-8 or 1e-10 most recently
+                rtol = 1e-9  # 1e-6 or 1e-8 or 1e-10 most recently
         elif pulse.pulse_type == "RISP":
             rtol = 1e-7
         else:
