@@ -331,7 +331,7 @@ class Model:
         pulse = self.scenario.get_pulse(t)
         relative_time = t - self.scenario.get_time_start_current_pulse(t)
         if pulse.pulse_type == "GDC" or pulse.pulse_type == "ICWC":
-            rtol = 1e-10  # 1e-12 for just glow scenario
+            rtol = 1e-19  # 1e-12 for just glow scenario
         elif pulse.pulse_type == "BAKE":
             rtol = 1e-12  # 1e-15 for just glow scenario
         elif pulse.pulse_type == "FP" or pulse.pulse_type == "FP_D":
