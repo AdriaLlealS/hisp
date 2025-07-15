@@ -341,7 +341,7 @@ class Model:
             elif pulse.pulse_type == "FP_D":
                 rtol = 1e-9
             else:
-                rtol = 1e-10  # 1e-6 or 1e-8 most recently
+                rtol = 1e-8  # 1e-6 or 1e-8 most recently
         elif pulse.pulse_type == "RISP":
             rtol = 1e-7
         else:
