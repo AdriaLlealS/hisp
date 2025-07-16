@@ -221,7 +221,7 @@ class Model:
                 else:
                     value = pulse.duration_no_waiting / 10
             elif pulse.pulse_type == "BAKE":
-                value = pulse.duration_no_waiting / 10000  # usually /10
+                value = pulse.duration_no_waiting / 1000  # usually /10
             elif pulse.pulse_type == "FP_D":
                 if relative_time_within_sub_pulse < pulse.duration_no_waiting:
                     value = 0.001  # s
@@ -341,7 +341,7 @@ class Model:
             elif pulse.pulse_type == "FP_D":
                 rtol = 1e-9
             else:
-                rtol = 1e-8  # 1e-6 or 1e-8 most recently
+                rtol = 1e-11  # 1e-6 or 1e-8 most recently
         elif pulse.pulse_type == "RISP":
             rtol = 1e-7
         else:
