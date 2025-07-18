@@ -217,7 +217,7 @@ class Model:
             # the stepsize is 1/10 of the duration of the pulse
             if pulse.pulse_type == "FP":
                 if relative_time_within_sub_pulse < pulse.duration_no_waiting:
-                    value = 0.001  # s # usually 0.01
+                    value = 0.01  # s # usually 0.01
                 else:
                     value = pulse.duration_no_waiting / 10
             elif pulse.pulse_type == "BAKE":
@@ -331,7 +331,7 @@ class Model:
         pulse = self.scenario.get_pulse(t)
         relative_time = t - self.scenario.get_time_start_current_pulse(t)
         if pulse.pulse_type == "GDC" or pulse.pulse_type == "ICWC":
-            rtol = 1e-13  # 1e-12 for just glow scenario
+            rtol = 1e-12  # 1e-12 for just glow scenario
         elif pulse.pulse_type == "BAKE":
             rtol = 1e-12  # 1e-15 for just glow scenario
         elif pulse.pulse_type == "FP" or pulse.pulse_type == "FP_D":
