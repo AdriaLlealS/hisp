@@ -343,7 +343,7 @@ class Model:
             else:
                 rtol = 1e-8  # 1e-6 or 1e-8 most recently
         elif pulse.pulse_type == "RISP":
-            rtol = 1e-5 # usually 1e-7
+            rtol = 1e-6 # usually 1e-7
         else:
             rtol = 1e-8 # usually 1e-10
         return rtol
