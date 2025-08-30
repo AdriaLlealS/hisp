@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   - fenics-dolfinx=0.9.0
-  - festim=2.0a8
+  # - festim=2.0a8
   - matplotlib
   - scipy
   - pandas
