@@ -790,6 +790,8 @@ def make_DFW_mb_model(
         surface_reaction_dd,
         surface_reaction_dt,
         surface_reaction_tt,
+        F.FixedConcentrationBC(subdomain=outlet, value=0.0, species="D"),
+        F.FixedConcentrationBC(subdomain=outlet, value=0.0, species="T"),
     ]
 
     ############# Exports #############
@@ -810,6 +812,10 @@ def make_DFW_mb_model(
             flux = F.SurfaceFlux(field=species, surface=inlet)
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
+
+            permeation_flux = F.SurfaceFlux(field=species, surface=outlet)
+            my_model.exports.append(permeation_flux)
+            quantities[species.name + "_permeation_flux"] = permeation_flux
 
     surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
     my_model.exports.append(surface_temperature)
