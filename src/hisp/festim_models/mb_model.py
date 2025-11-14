@@ -269,12 +269,23 @@ def make_W_mb_model(
     #)
 
 
-    Gamma_D = deuterium_ion_flux + deuterium_atom_flux      # or combine ion + atom if that's your physics
-    Gamma_T = tritium_ion_flux + tritium_atom_flux
+    Gamma_D = deuterium_ion_flux      # or combine ion + atom if that's your physics
+    Gamma_T = tritium_ion_flux
+    Gamma2_D = deuterium_atom_flux
+    Gamma2_T = tritium_atom_flux
+
+    def Gamma_D_total(t): 
+        return Gamma_D(t) + Gamma2_D(t)
+
+    def Gamma_T_total(t): 
+        return Gamma_T(t) + Gamma2_T(t)
 
     # Build the two BC callables
-    c_sD = make_uniform_surface_concentration(temperature, Gamma_D, D_0, E_D, implantation_range, surface_x=0.0)
-    c_sT = make_uniform_surface_concentration(temperature, Gamma_T, D_bc, E_bc, implantation_range, surface_x=0.0)
+    c_sD = make_uniform_surface_concentration(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_uniform_surface_concentration(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+
+    #c_sD2 = make_uniform_surface_concentration(temperature, Gamma2_D, D_0, E_D, implantation_range, surface_x=0.0)
+    #c_sT2 = make_uniform_surface_concentration(temperature, Gamma2_T, D_0, E_D, implantation_range, surface_x=0.0)
 
     # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
     bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
