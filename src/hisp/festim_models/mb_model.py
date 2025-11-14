@@ -17,7 +17,7 @@ import h_transport_materials as htm
 from typing import Callable, Tuple, Dict, Union
 from numpy.typing import NDArray
 
-# TODO this is hard coded and show depend on incident energy?
+# TODO this is hard coded and should depend on incident energy?
 implantation_range = 3e-9  # m
 width = 1e-9  # m
 
@@ -55,6 +55,15 @@ def make_W_mb_model(
 
     ############# Material Parameters #############
 
+    def graded_vertices(L, h0, r):
+        xs = [0.0]; h = h0
+        while xs[-1] + h < L:
+            xs.append(xs[-1] + h); h *= r
+        if xs[-1] < L: xs.append(L)
+        return np.array(xs)
+    
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
+
     vertices = np.concatenate(  # 1D mesh with extra refinement
         [
             np.linspace(0, 1e-5, num=100),
@@ -62,7 +71,7 @@ def make_W_mb_model(
             np.linspace(1e-4, L, num=300),
         ]
     )
-    my_model.mesh = F.Mesh1D(vertices)
+    my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
     w_density = 6.3382e28  # atoms/m3
@@ -195,74 +204,90 @@ def make_W_mb_model(
         # ),
     ]
 
-    ############# Temperature Parameters (K) #############
+    #############   Parameters (K) #############
 
     my_model.temperature = temperature
 
     ############# Flux Parameters #############
 
-    my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-    ]
+    #my_model.sources = [
+    #    PulsedSource(
+    #        flux=deuterium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=deuterium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=w_subdomain,
+    #    ),
+    #]
 
     ############# Boundary Conditions #############
-    surface_reaction_dd = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_D],
-        gas_pressure=0,
-        k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
+    #surface_reaction_dd = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_D],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
 
-    surface_reaction_tt = F.SurfaceReactionBC(
-        reactant=[mobile_T, mobile_T],
-        gas_pressure=0,
-        k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
+    #surface_reaction_tt = F.SurfaceReactionBC(
+    #    reactant=[mobile_T, mobile_T],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
 
-    surface_reaction_dt = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_T],
-        gas_pressure=0,
-        k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
+    #surface_reaction_dt = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_T],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
+
+
+    Gamma_D = deuterium_ion_flux + deuterium_atom_flux      # or combine ion + atom if that's your physics
+    Gamma_T = tritium_ion_flux + tritium_atom_flux
+
+    # Build the two BC callables
+    c_sD = make_uniform_surface_concentration(temperature, Gamma_D, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_uniform_surface_concentration(temperature, Gamma_T, D_bc, E_bc, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+
+
 
     my_model.boundary_conditions = [
-        surface_reaction_dd,
-        surface_reaction_dt,
-        surface_reaction_tt,
+        bc_D,
+        bc_T
+        #surface_reaction_dd,
+        #surface_reaction_dt,
+        #surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -1055,3 +1080,23 @@ def make_particle_flux_function(
         return value
 
     return particle_flux_function
+
+
+
+kB = 1.380649e-23  # J/K
+eV_to_J = 1.602176634e-19
+
+def make_uniform_surface_concentration(T_fun, flux_fun, D0, E_eV, R_p, surface_x=0.0):
+    """
+    Returns a callable c_s(x, t) that FESTIM can use as a Dirichlet value.
+    It is uniform on the inlet; x is only used to return the correct shape.
+    """
+    E_J = E_eV * eV_to_J
+    x_surf = np.array([[float(surface_x)]])  # evaluate T at the surface (front at x=0)
+    def c_s(x, t):
+        t = float(t)
+        T_surf = float(T_fun(x_surf, t)[0])  # temperature at the surface
+        phi = float(flux_fun(t))             # incident particle flux at time t
+        val = (phi * float(R_p)) / (D0 * np.exp(E_eV / (kB * T_surf)))
+        return np.full_like(x[0], val, dtype=float)
+    return c_s
