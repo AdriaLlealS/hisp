@@ -288,8 +288,8 @@ def make_W_mb_model(
     #c_sT2 = make_uniform_surface_concentration(temperature, Gamma2_T, D_0, E_D, implantation_range, surface_x=0.0)
 
     # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=0, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=0, species="T")
 
 
 
