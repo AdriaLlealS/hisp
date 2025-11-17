@@ -275,21 +275,21 @@ def make_W_mb_model(
     Gamma2_T = tritium_atom_flux
 
     def Gamma_D_total(t): 
-        return Gamma_D(t) + Gamma2_D(t)
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
 
     def Gamma_T_total(t): 
-        return Gamma_T(t) + Gamma2_T(t)
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
 
     # Build the two BC callables
-    c_sD = make_uniform_surface_concentration(temperature, Gamma_D, D_0, E_D, implantation_range, surface_x=0.0)
-    c_sT = make_uniform_surface_concentration(temperature, Gamma_T, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
 
     #c_sD2 = make_uniform_surface_concentration(temperature, Gamma2_D, D_0, E_D, implantation_range, surface_x=0.0)
     #c_sT2 = make_uniform_surface_concentration(temperature, Gamma2_T, D_0, E_D, implantation_range, surface_x=0.0)
 
     # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=0, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=0, species="T")
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
@@ -1094,20 +1094,17 @@ def make_particle_flux_function(
 
 
 
-kB = 1.380649e-23  # J/K
-eV_to_J = 1.602176634e-19
+kB_J   = 1.380649e-23      # J/K
+eV_to_J = 1.602176634e-19  # J/eV
 
-def make_uniform_surface_concentration(T_fun, flux_fun, D0, E_eV, R_p, surface_x=0.0):
-    """
-    Returns a callable c_s(x, t) that FESTIM can use as a Dirichlet value.
-    It is uniform on the inlet; x is only used to return the correct shape.
-    """
-    E_J = E_eV * eV_to_J
-    x_surf = np.array([[float(surface_x)]])  # evaluate T at the surface (front at x=0)
-    def c_s(x, t):
+def make_surface_concentration_time_function_J(T_fun, flux_fun, D0, E_eV, R_p, surface_x=0.0):
+    x_surf = np.array([[float(surface_x)]])
+    E_J    = float(E_eV) * eV_to_J
+
+    def c_S(t):
         t = float(t)
-        T_surf = float(T_fun(x_surf, t)[0])  # temperature at the surface
-        phi = float(flux_fun(t))             # incident particle flux at time t
-        val = (phi * float(R_p)) / (D0 * np.exp(E_eV / (kB * T_surf)))
-        return np.full_like(x[0], val, dtype=float)
-    return c_s
+        T_surf = float(T_fun(x_surf, t)[0])
+        phi    = float(flux_fun(t))
+        val    = (phi * float(R_p)) / (D0 * np.exp(E_J / (kB_J * T_surf)))
+        return float(val)
+    return c_S
