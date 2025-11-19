@@ -270,19 +270,19 @@ def make_W_mb_model(
         subdomain=inlet,
     )
 
-    def Gamma_D_total(t): 
-        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-
-    def Gamma_T_total(t): 
-        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-
-    # Build the two BC callables
-    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-
-    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    #def Gamma_D_total(t): 
+    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+#
+    #def Gamma_T_total(t): 
+    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+#
+    ## Build the two BC callables
+    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+#
+    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
@@ -593,19 +593,19 @@ def make_B_mb_model(
             volume=b_subdomain,
         ),
     ]
-    def Gamma_D_total(t): 
-        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-
-    def Gamma_T_total(t): 
-        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-
-    # Build the two BC callables
-    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-
-    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    #def Gamma_D_total(t): 
+    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+#
+    #def Gamma_T_total(t): 
+    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+#
+    ## Build the two BC callables
+    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+#
+    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
     ############# Boundary Conditions #############
     my_model.boundary_conditions = [
@@ -864,12 +864,12 @@ def make_DFW_mb_model(
     E_kr=-0.594,
 
     # Build the two BC callables
-    c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-    c_sT = make_T_surface_concentration_SS(temperature, total_T_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-
-    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    #c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
+    #c_sT = make_T_surface_concentration_SS(temperature, total_T_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
+#
+    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
