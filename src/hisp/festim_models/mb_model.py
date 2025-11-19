@@ -212,86 +212,86 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
-    my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-    ]
+    #my_model.sources = [
+    #    PulsedSource(
+    #        flux=deuterium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=deuterium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=w_subdomain,
+    #    ),
+    #]
 
     ############# Boundary Conditions #############
-    surface_reaction_dd = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_D],
-        gas_pressure=0,
-        k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
+    #surface_reaction_dd = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_D],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
 
-    surface_reaction_tt = F.SurfaceReactionBC(
-        reactant=[mobile_T, mobile_T],
-        gas_pressure=0,
-        k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
+    #surface_reaction_tt = F.SurfaceReactionBC(
+    #    reactant=[mobile_T, mobile_T],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
 
-    surface_reaction_dt = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_T],
-        gas_pressure=0,
-        k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
+    #surface_reaction_dt = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_T],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
 
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-#
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-#
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+
+    # Build the two BC callables
+    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
     my_model.boundary_conditions = [
-        #bc_D,
-        #bc_T
-        surface_reaction_dd,
-        surface_reaction_dt,
-        surface_reaction_tt,
+        bc_D,
+        bc_T
+        #surface_reaction_dd,
+        #surface_reaction_dt,
+        #surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -567,52 +567,52 @@ def make_B_mb_model(
 
     ############# Flux Parameters #############
 
-    my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
-        ),
-    ]
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-#
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-#
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    #my_model.sources = [
+    #    PulsedSource(
+    #        flux=deuterium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=b_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=b_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=deuterium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=b_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=b_subdomain,
+    #    ),
+    #]
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+
+    # Build the two BC callables
+    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
     ############# Boundary Conditions #############
     my_model.boundary_conditions = [
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
-        #bc_D,
-        #bc_T,
+        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        bc_D,
+        bc_T,
         F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
         F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
     ]
@@ -802,32 +802,32 @@ def make_DFW_mb_model(
 
     ############# Flux Parameters #############
 
-    my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=ss_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=ss_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=ss_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=ss_subdomain,
-        ),
-    ]
+    #my_model.sources = [
+    #    PulsedSource(
+    #        flux=deuterium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=ss_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=ss_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=deuterium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=ss_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=ss_subdomain,
+    #    ),
+    #]
 
     ############# Boundary Conditions #############
     surface_reaction_dd = F.SurfaceReactionBC(
@@ -864,21 +864,21 @@ def make_DFW_mb_model(
     E_kr=-0.594,
 
     # Build the two BC callables
-    #c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-    #c_sT = make_T_surface_concentration_SS(temperature, total_T_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
+    c_sT = make_T_surface_concentration_SS(temperature, total_T_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
     my_model.boundary_conditions = [
-        #bc_D,
-        #bc_T,
-        surface_reaction_dd,
-        surface_reaction_dt,
-        surface_reaction_tt,
+        bc_D,
+        bc_T,
+    #    surface_reaction_dd,
+    #    surface_reaction_dt,
+    #    surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -1042,7 +1042,7 @@ def calculate_temperature_B(heat_flux: float, coolant_temp: float) -> float:
     # https://doi.org/10.1038/s41598-020-74844-w
     T_surf_tungsten = 1.1e-4 * heat_flux + coolant_temp
     R_c_jet = 5e-4  # m2 K/W  calculated from JET-ILW (JPN#98297)
-    return float(R_c_jet * heat_flux + T_surf_tungsten)
+    return R_c_jet * heat_flux + T_surf_tungsten
 
 
 def make_temperature_function(
@@ -1160,7 +1160,7 @@ def make_surface_concentration_time_function_J(T_fun, flux_fun, D0, E_eV, R_p, s
         t = float(t)
         T_surf = float(T_fun(x_surf, t)[0])
         phi    = float(flux_fun(t))
-        val    = (phi * float(R_p)) / (D0 * np.exp(E_J / (kB_J * T_surf)))
+        val    = (phi * float(R_p)) / (D0 * np.exp(-E_J / (kB_J * T_surf)))
         return float(val)
     return c_S
 
