@@ -206,4 +206,4 @@ class Model:
 
             current_time = start_of_pulse + pulse.total_duration * pulse.nb_pulses
 
-        return sorted(np.unique(milestones)).tolist()
+        return sorted(np.unique(milestones).tolist())
