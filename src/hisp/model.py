@@ -133,21 +133,24 @@ class Model:
             "L": bin.thickness,
         }
 
+        
         if isinstance(bin, DivBin):
             parent_bin_index = bin.index
         elif isinstance(bin, SubBin):
             parent_bin_index = bin.parent_bin_index
 
         if bin.material == "W":
+            rtol0 = float(self.bake_rtol(0.0))  # <= evaluate to a numeric value
             return make_W_mb_model(
                 **common_args,
-                custom_rtol=self.bake_rtol,
+                custom_rtol=rtol0,
                 folder=f"mb{parent_bin_index}_{bin.mode}_results",
             )
         elif bin.material == "B":
+            rtol0 = float(self.make_custom_rtol(0.0))
             return make_B_mb_model(
                 **common_args,
-                custom_rtol=self.make_custom_rtol,
+                custom_rtol=rtol0,
                 folder=f"mb{parent_bin_index}_{bin.mode}_results",
             )
         elif bin.material == "SS":
@@ -157,6 +160,7 @@ class Model:
             )
         else:
             raise ValueError(f"Unknown material: {bin.material} for bin {bin.index}")
+
 
     def max_stepsize(self, t: float) -> float:
         pulse = self.scenario.get_pulse(t)
