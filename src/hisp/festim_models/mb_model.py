@@ -1011,7 +1011,7 @@ def calculate_temperature_W(
 
     a = (T_rear - T_surface) / thickness
     b = T_surface
-    return float(a * x + b)
+    return a * x + b
 
 
 def calculate_temperature_B(heat_flux: float, coolant_temp: float) -> float:
