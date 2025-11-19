@@ -50,7 +50,7 @@ class CustomSettings(F.Settings):
         transient=True,
         final_time=None,
         stepsize=None,
-        element_degree= None,
+        element_degree= 1,
     ) -> None:
         self.atol = atol
         self.rtol = rtol
