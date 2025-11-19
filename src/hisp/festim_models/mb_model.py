@@ -330,8 +330,8 @@ def make_W_mb_model(
     )
 
     my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    #my_model.settings.preconditioner  = "lu"       # LU factorization
+    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
+    my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
 
     return my_model, quantities
@@ -657,8 +657,8 @@ def make_B_mb_model(
     )
 
     my_model.settings.stepsize = Stepsize(initial_value=1e-4)
-    #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    #my_model.settings.preconditioner  = "lu"       # LU factorization
+    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
+    my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
     return my_model, quantities
 
@@ -913,8 +913,8 @@ def make_DFW_mb_model(
     )
 
     my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    #my_model.settings.preconditioner  = "lu"       # LU factorization
+    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
+    my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
     return my_model, quantities
 
