@@ -317,9 +317,9 @@ def make_W_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    my_model.exports.append(surface_temperature)
-    quantities["surface_temperature"] = surface_temperature
+    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
+    #my_model.exports.append(surface_temperature)
+    #quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
     my_model.settings = CustomSettings(
@@ -641,9 +641,9 @@ def make_B_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    my_model.exports.append(surface_temperature)
-    quantities["surface_temperature"] = surface_temperature
+    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
+    #my_model.exports.append(surface_temperature)
+    #quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
     my_model.settings = CustomSettings(
@@ -895,9 +895,9 @@ def make_DFW_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    my_model.exports.append(surface_temperature)
-    quantities["surface_temperature"] = surface_temperature
+    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
+    #my_model.exports.append(surface_temperature)
+    #quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
     my_model.settings = F.Settings(
