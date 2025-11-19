@@ -1011,7 +1011,7 @@ def calculate_temperature_W(
 
     a = (T_rear - T_surface) / thickness
     b = T_surface
-    return a * x + b
+    return float(a * x + b)
 
 
 def calculate_temperature_B(heat_flux: float, coolant_temp: float) -> float:
@@ -1042,7 +1042,7 @@ def calculate_temperature_B(heat_flux: float, coolant_temp: float) -> float:
     # https://doi.org/10.1038/s41598-020-74844-w
     T_surf_tungsten = 1.1e-4 * heat_flux + coolant_temp
     R_c_jet = 5e-4  # m2 K/W  calculated from JET-ILW (JPN#98297)
-    return R_c_jet * heat_flux + T_surf_tungsten
+    return float(R_c_jet * heat_flux + T_surf_tungsten)
 
 
 def make_temperature_function(
