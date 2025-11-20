@@ -339,9 +339,9 @@ def make_W_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    surface_T_inlet = SurfaceTemperatureAtX(my_model.temperature, x_pos=0.0)
-    my_model.exports.append("surface_temperature")
-    quantities["surface_temperature"] = surface_T_inlet
+    surface_temperature = SurfaceTemperatureAtX(my_model.temperature, x_pos=0.0)
+    my_model.exports.append(surface_temperature)
+    quantities["surface_temperature"] = surface_temperature
 
 
     #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
