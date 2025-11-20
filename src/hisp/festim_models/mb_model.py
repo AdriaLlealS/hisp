@@ -18,10 +18,12 @@ from typing import Callable, Tuple, Dict, Union
 from numpy.typing import NDArray
 
 import math
+import csv
 
 # TODO this is hard coded and should depend on incident energy?
 implantation_range = 3e-9  # m
 width = 1e-9  # m
+x_surf = 0.0
 
 
 def make_W_mb_model(
@@ -36,7 +38,7 @@ def make_W_mb_model(
     custom_rtol: Union[
         float, Callable
     ] = 1e-10,  # default rtol unless otherwise specified, used for everything but BAKE
-    exports=True,
+    exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
 
@@ -210,6 +212,11 @@ def make_W_mb_model(
 
     my_model.temperature = temperature
 
+
+    def surface_temperature(x_surf, t):
+        return float(my_model.temperature(x_surf, t)[0])
+
+
     ############# Flux Parameters #############
 
     #my_model.sources = [
@@ -317,6 +324,10 @@ def make_W_mb_model(
             flux = F.SurfaceFlux(field=species, surface=inlet)
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
+    
+    with open("surface_temperature.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([t, T_surf])
 
     #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
     #my_model.exports.append(surface_temperature)
@@ -353,7 +364,7 @@ def make_B_mb_model(
     custom_rtol: Union[
         float, Callable
     ] = 1e-10,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
-    exports=True,
+    exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the B MB scenario.
 
@@ -674,7 +685,7 @@ def make_DFW_mb_model(
     final_time: float,
     folder: str,
     L: float,
-    exports=True,
+    exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the DFW MB scenario.
 
@@ -903,9 +914,9 @@ def make_DFW_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    #my_model.exports.append(surface_temperature)
-    #quantities["surface_temperature"] = surface_temperature
+    surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
+    my_model.exports.append(surface_temperature)
+    quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
     my_model.settings = F.Settings(
