@@ -19,6 +19,27 @@ from numpy.typing import NDArray
 
 import math
 
+
+class SurfaceTemperatureAtX:
+    """
+    Records temperature at a given x-position (default: x=0.0) as a time series.
+    Designed to behave like FESTIM timeseries export objects with a `.data` list.
+    """
+    def __init__(self, temperature_fun, x_pos=0.0, name="surface_temperature"):
+        self.temperature_fun = temperature_fun          # callable: T(x_array, t) -> array-like
+        self.x = np.array([[float(x_pos)]])             # shape (1,1), consistent with your BCs
+        self.name = name
+        self.data = []                                  # list of dicts: {"time": float, "value": float}
+
+    def update(self, t: float):
+        """
+        Call this once per time step AFTER the solver has advanced to time t.
+        """
+        T_arr = self.temperature_fun(self.x, float(t))
+        T_val = float(T_arr[0])                         # first entry, cast to float
+        self.data.append({"time": float(t), "value": T_val})
+
+
 # TODO this is hard coded and should depend on incident energy?
 implantation_range = 3e-9  # m
 width = 1e-9  # m
@@ -303,7 +324,7 @@ def make_W_mb_model(
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T),
-            F.VTXTemperatureExport(f"{folder}/temperature.bp"),
+            #F.VTXTemperatureExport(f"{folder}/temperature.bp"),
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
         ]
@@ -318,9 +339,10 @@ def make_W_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    surface_temperature = F.AverageSurface(field=temperature, surface=inlet)
-    my_model.exports.append(surface_temperature)
-    quantities["surface_temperature"] = surface_temperature
+    surface_T_inlet = SurfaceTemperatureAtX(my_model.temperature, x_pos=0.0)
+    my_model.exports.append("surface_temperature")
+    quantities["surface_temperature"] = surface_T_inlet
+
 
     #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
     #my_model.exports.append(surface_temperature)
