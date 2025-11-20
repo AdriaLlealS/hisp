@@ -211,13 +211,6 @@ def make_W_mb_model(
 
     my_model.temperature = temperature
 
-    x_surf = np.array([[0.0]])
-
-
-    
-    def surface_temperature(x_surf: float, t: float) -> float:
-        return float(my_model.temperature(np.array([[x_surf]]), t)[0])
-
 
     ############# Flux Parameters #############
 
@@ -326,16 +319,6 @@ def make_W_mb_model(
             flux = F.SurfaceFlux(field=species, surface=inlet)
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
-    
-    
-    with open("surface_temperature.csv", "a", newline="") as f:
-        writer = csv.writer(f)
-    
-        # Example inside your time loop or callback:
-        t = float(my_model.settings.current_time)  # current time from FESTIM
-        T_surf = surface_temperature(x_surf, t)
-        writer.writerow([T_surf])  # only the temperature value
-
 
     #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
     #my_model.exports.append(surface_temperature)
