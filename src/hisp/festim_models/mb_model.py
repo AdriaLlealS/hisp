@@ -215,6 +215,8 @@ def make_W_mb_model(
 
     def surface_temperature(x_surf, t):
         return float(my_model.temperature(x_surf, t)[0])
+    
+    T_surf = surface_temperature(x_surf, t)
 
 
     ############# Flux Parameters #############
@@ -327,7 +329,7 @@ def make_W_mb_model(
     
     with open("surface_temperature.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([t, T_surf])
+        writer.writerow([T_surf])
 
     #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
     #my_model.exports.append(surface_temperature)
