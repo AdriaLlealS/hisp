@@ -320,6 +320,16 @@ def make_W_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
+    
+    def surface_temperature_now() -> float:
+        x0 = np.array([[0.0]])
+        return float(my_model.temperature_fenics.eval(x0)[0])
+
+    # Append one value per line (no headers)
+    with open("surface_temperature.csv", "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([surface_temperature_now()])
+
     #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
     #my_model.exports.append(surface_temperature)
     #quantities["surface_temperature"] = surface_temperature
