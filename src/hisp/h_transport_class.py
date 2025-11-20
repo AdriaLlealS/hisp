@@ -69,7 +69,7 @@ class CustomProblem(F.HydrogenTransportProblem):
             )
 
         for bc in self.boundary_conditions:
-            if isinstance(bc, (F.FixedConcentrationBC, F.ParticleFluxBC)):
+            if isinstance(bc, (F.FixedConcentrationBC, F.ParticleFluxBC, F.SurfaceReactionBC)):
                 if bc.temperature_dependent:
                     bc.update(t=t)
 
