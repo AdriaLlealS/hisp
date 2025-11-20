@@ -244,31 +244,31 @@ def make_W_mb_model(
     ############ Boundary Conditions #############
     surface_reaction_dd = F.SurfaceReactionBC(
         reactant=[mobile_D, mobile_D],
-        gas_pressure=0,
+        gas_pressure=0.0,
         k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
+        E_kr=-2.0,
+        k_d0=0.0,
+        E_kd=0.0,
         subdomain=inlet,
     )
 
     surface_reaction_tt = F.SurfaceReactionBC(
         reactant=[mobile_T, mobile_T],
-        gas_pressure=0,
+        gas_pressure=0.0,
         k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
+        E_kr=-2.0,
+        k_d0=0.0,
+        E_kd=0.0,
         subdomain=inlet,
     )
 
     surface_reaction_dt = F.SurfaceReactionBC(
         reactant=[mobile_D, mobile_T],
-        gas_pressure=0,
+        gas_pressure=0.0,
         k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
+        E_kr=-2.0,
+        k_d0=0.0,
+        E_kd=0.0,
         subdomain=inlet,
     )
 
