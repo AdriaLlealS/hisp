@@ -340,7 +340,7 @@ def make_W_mb_model(
             quantities[species.name + "_surface_flux"] = flux
 
     surface_temperature = SurfaceTemperatureAtX(my_model.temperature, x_pos=0.0)
-    my_model.exports.append(surface_temperature)
+    #my_model.exports.append(surface_temperature)
     quantities["surface_temperature"] = surface_temperature
 
 
