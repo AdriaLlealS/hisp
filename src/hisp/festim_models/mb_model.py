@@ -303,6 +303,7 @@ def make_W_mb_model(
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T),
+            F.VTXTemperatureExport(f"{folder}/temperature.bp"),
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
         ]
@@ -316,6 +317,10 @@ def make_W_mb_model(
             flux = F.SurfaceFlux(field=species, surface=inlet)
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
+
+    surface_temperature = F.AverageSurface(field=temperature, surface=inlet)
+    my_model.exports.append(surface_temperature)
+    quantities["surface_temperature"] = surface_temperature
 
     #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
     #my_model.exports.append(surface_temperature)
