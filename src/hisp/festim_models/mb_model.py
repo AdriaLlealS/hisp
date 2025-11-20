@@ -216,6 +216,7 @@ def make_W_mb_model(
     def surface_temperature(x_surf, t):
         return float(my_model.temperature(x_surf, t)[0])
     
+    t = my_model.times
     T_surf = surface_temperature(x_surf, t)
 
 
