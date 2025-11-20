@@ -213,11 +213,10 @@ def make_W_mb_model(
     my_model.temperature = temperature
 
 
-    def surface_temperature(x_surf, t):
-        return float(my_model.temperature(x_surf, t)[0])
+    def surface_temperature(x_surf,):
+        return float(my_model.temperature(x_surf))
     
-    t = float(my_model.t)
-    T_surf = surface_temperature(x_surf, t)
+    T_surf = surface_temperature(x_surf)
 
 
     ############# Flux Parameters #############
