@@ -1160,7 +1160,7 @@ def make_surface_concentration_time_function_J(T_fun, flux_fun, D0, E_eV, R_p, s
         t = float(t)
         T_surf = float(T_fun(x_surf, t)[0])
         phi    = float(flux_fun(t))
-        val    = (phi * float(R_p)) / (D0 * np.exp(E_J / (kB_J * T_surf)))
+        val    = (phi * float(R_p)) / (D0 * np.exp(-E_J / (kB_J * T_surf)))
         return float(val)
     return c_S
 
