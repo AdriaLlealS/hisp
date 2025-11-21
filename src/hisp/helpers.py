@@ -5,6 +5,7 @@ import numpy as np
 import numpy.typing as npt
 from hisp.scenario import Pulse
 from dolfinx import fem
+import math
 
 
 class PulsedSource(F.ParticleSource):
@@ -39,24 +40,20 @@ class PulsedSource(F.ParticleSource):
     #    self.flux_fenics.value = self.flux(t)
 
 
-    def create_value_fenics(self, mesh, temperature, t: fem.Constant):
-        # Convert t to float
-        t_float = float(t)
+    def create_value_fenics(self, mesh, temperature, t: Constant):
 
-        # Get flux value and validate
-        flux_value = self.flux(t_float)
-        if flux_value is None:
-            flux_value = 0.0  # No flux outside pulses
-        flux_value = float(flux_value)
+        flux_value = self.flux(float(t))
+        if flux_value is None or math.isnan(flux_value):
+            flux_value = 0.0
 
-        # Create a proper FEniCSx Constant
-        self.flux_fenics = fem.Constant(mesh, np.array(flux_value, dtype=fem.ScalarType))
+        self.flux_fenics = fem.Constant(mesh, np.array(float(flux_value), dtype=fem.ScalarType))
 
-        # Build distribution expression
         x = ufl.SpatialCoordinate(mesh)
         self.distribution_fenics = self.distribution(x)
 
-        # Multiply scalar Constant by UFL expression
+        if self.distribution_fenics is None:
+            raise RuntimeError("distribution(x) returned None")
+
         self.value_fenics = self.flux_fenics * self.distribution_fenics
 
     def update(self, t: float):
