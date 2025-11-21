@@ -242,56 +242,60 @@ def make_W_mb_model(
     ]
 
     ############ Boundary Conditions #############
-    surface_reaction_dd = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_D],
-        gas_pressure=0.0,
-        k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-        E_kr=0.0,
-        k_d0=0.0,
-        E_kd=0.0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_tt = F.SurfaceReactionBC(
-        reactant=[mobile_T, mobile_T],
-        gas_pressure=0.0,
-        k_r0=7.94e-17,
-        E_kr=0.0,
-        k_d0=0.0,
-        E_kd=0.0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_dt = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_T],
-        gas_pressure=0.0,
-        k_r0=7.94e-17,
-        E_kr=0.0,
-        k_d0=0.0,
-        E_kd=0.0,
-        subdomain=inlet,
-    )
-
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+    #surface_reaction_dd = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_D],
+    #    gas_pressure=0.0,
+    #    k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
+    #    E_kr=0.0,
+    #    k_d0=0.0,
+    #    E_kd=0.0,
+    #    subdomain=inlet,
+    #)
 #
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+    #surface_reaction_tt = F.SurfaceReactionBC(
+    #    reactant=[mobile_T, mobile_T],
+    #    gas_pressure=0.0,
+    #    k_r0=7.94e-17,
+    #    E_kr=0.0,
+    #    k_d0=0.0,
+    #    E_kd=0.0,
+    #    subdomain=inlet,
+    #)
 #
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    #surface_reaction_dt = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_T],
+    #    gas_pressure=0.0,
+    #    k_r0=7.94e-17,
+    #    E_kr=0.0,
+    #    k_d0=0.0,
+    #    E_kd=0.0,
+    #    subdomain=inlet,
+    #)
+
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+
+    # Build the two BC callables
+    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
     my_model.boundary_conditions = [
-        surface_reaction_dd,
-        surface_reaction_dt,
-        surface_reaction_tt,
+        #bc_D,
+        #bc_T,
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        #surface_reaction_dd,
+        #surface_reaction_dt,
+        #surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -595,19 +599,19 @@ def make_B_mb_model(
         ),
     ]
 
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-#
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-#
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+
+    # Build the two BC callables
+    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
     ############# Boundary Conditions #############
     my_model.boundary_conditions = [
