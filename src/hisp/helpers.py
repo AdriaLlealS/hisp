@@ -51,6 +51,11 @@ class PulsedSource(F.ParticleSource):
     def time_dependent(self):
         return True
 
+    @property
+    def temperature_dependent(self):
+        # This pulsed source does not depend on temperature by construction.
+        return False
+
 # we override Stepsize to control the precision of milestones detection
 # TODO remove this when https://github.com/festim-dev/FESTIM/issues/933 is fixed
 class Stepsize(F.Stepsize):
