@@ -14,16 +14,38 @@ class PulsedSource(F.ParticleSource):
         callable value(x, t) = flux(t) * distribution(x) and forwarding it to
         the base ParticleSource. This avoids creating fenics constants here
         and ensures compatibility with either numeric or UFL flux expressions.
+
+        The value callable converts dolfinx.fem.function.Constant (passed by
+        FESTIM during assembly) to a Python float when possible so that user
+        flux functions that require floats continue to work.
         """
         self.flux = flux
         self.distribution = distribution
 
         def value(x, t):
-            # flux(t) may return either a Python float or a UFL expression;
-            # distribution(x) is expected to be a UFL expression.
-            return self.flux(t) * self.distribution(x)
+            tt = self._t_as_float(t)
+            return self.flux(tt) * self.distribution(x)
 
         super().__init__(value=value, volume=volume, species=species)
+
+    @staticmethod
+    def _t_as_float(t):
+        """Convert common FESTIM/dolfinx time objects to a Python float when
+        possible. If conversion is not possible, return the original object.
+
+        Handles: int, float, numpy scalars, and dolfinx.fem.function.Constant
+        (by reading its .value).
+        """
+        if isinstance(t, (int, float, np.floating)):
+            return float(t)
+        # dolfinx Constant has attribute 'value' which may be a numpy array-like
+        v = getattr(t, "value", None)
+        if v is not None:
+            try:
+                return float(np.array(v).squeeze())
+            except Exception:
+                pass
+        return t
 
     @property
     def time_dependent(self):
