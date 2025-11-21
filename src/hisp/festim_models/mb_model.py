@@ -214,6 +214,39 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
+    # Debug: sample flux functions at representative times to verify non-zero values
+    sample_times = [
+        0.1059305553370218,
+        0.12811666640442615,
+        0.15473999968531138,
+        0.18668799962237365,
+        0.22502559954684836,
+        0.27103071945621804,
+        0.3262368633474616,
+        0.3924842360169539,
+        0.4719810832203447,
+    ]
+
+    print("[DEBUG flux_samples] sampling flux functions before creating sources")
+    for tt in sample_times:
+        try:
+            d_ion = float(deuterium_ion_flux(tt))
+        except Exception as e:
+            d_ion = f"ERR:{e}"
+        try:
+            t_ion = float(tritium_ion_flux(tt))
+        except Exception as e:
+            t_ion = f"ERR:{e}"
+        try:
+            d_atom = float(deuterium_atom_flux(tt))
+        except Exception as e:
+            d_atom = f"ERR:{e}"
+        try:
+            t_atom = float(tritium_atom_flux(tt))
+        except Exception as e:
+            t_atom = f"ERR:{e}"
+        print(f"[DEBUG flux_samples] t={tt}: D_ion={d_ion}, T_ion={t_ion}, D_atom={d_atom}, T_atom={t_atom}")
+
     my_model.sources = [
         PulsedSource(
             flux=deuterium_ion_flux,
@@ -859,55 +892,11 @@ def make_DFW_mb_model(
     #]
 
     ############# Boundary Conditions #############
-    surface_reaction_dd = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_D],
-        gas_pressure=0,
-        k_r0=1.75e-24,
-        E_kr=-0.594,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_tt = F.SurfaceReactionBC(
-        reactant=[mobile_T, mobile_T],
-        gas_pressure=0,
-        k_r0=1.75e-24,
-        E_kr=-0.594,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_dt = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_T],
-        gas_pressure=0,
-        k_r0=1.75e-24,
-        E_kr=-0.594,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    k_r0=1.75e-24,
-    E_kr=-0.594,
-
-    # Build the two BC callables
-    c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-    c_sT = make_T_surface_concentration_SS(temperature, total_T_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-
-    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
-
-
-
     my_model.boundary_conditions = [
-        bc_D,
-        bc_T,
-    #    surface_reaction_dd,
-    #    surface_reaction_dt,
-    #    surface_reaction_tt,
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
+        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
     ]
 
     ############# Exports #############
@@ -917,7 +906,15 @@ def make_DFW_mb_model(
             F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d4.bp", field=trap4_D),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t4.bp", field=trap4_T),
             F.VTXTemperatureExport(f"{folder}/temperature.bp"),
+            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d5.bp", field=trap5_D),
+            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t5.bp", field=trap5_T),
         ]
 
     quantities = {}
@@ -930,9 +927,9 @@ def make_DFW_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    my_model.exports.append(surface_temperature)
-    quantities["surface_temperature"] = surface_temperature
+    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
+    #my_model.exports.append(surface_temperature)
+    #quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
     my_model.settings = F.Settings(
