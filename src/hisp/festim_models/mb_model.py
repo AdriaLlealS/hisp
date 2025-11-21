@@ -214,108 +214,84 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
-    # Debug: sample flux functions at representative times to verify non-zero values
-    sample_times = [
-        0.1059305553370218,
-        0.12811666640442615,
-        0.15473999968531138,
-        0.18668799962237365,
-        0.22502559954684836,
-        0.27103071945621804,
-        0.3262368633474616,
-        0.3924842360169539,
-        0.4719810832203447,
-    ]
-
-    # (flux sampling list preserved for potential debugging) 
-
-    # Create PulsedSource objects that wrap the original flux callables.
-    # PulsedSource implements create_value_fenics/update and exposes the
-    # temperature_dependent/time_dependent properties expected by FESTIM.
-    dist_fn = lambda x: gaussian_distribution(x, implantation_range, width)
-
     my_model.sources = [
-        PulsedSource(flux=deuterium_ion_flux, distribution=dist_fn, volume=w_subdomain, species=mobile_D),
-        PulsedSource(flux=tritium_ion_flux, distribution=dist_fn, volume=w_subdomain, species=mobile_T),
-        PulsedSource(flux=deuterium_atom_flux, distribution=dist_fn, volume=w_subdomain, species=mobile_D),
-        PulsedSource(flux=tritium_atom_flux, distribution=dist_fn, volume=w_subdomain, species=mobile_T),
+        PulsedSource(
+            flux=deuterium_ion_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_D,
+            volume=w_subdomain,
+        ),
+        PulsedSource(
+            flux=tritium_ion_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_T,
+            volume=w_subdomain,
+        ),
+        PulsedSource(
+            flux=deuterium_atom_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_D,
+            volume=w_subdomain,
+        ),
+        PulsedSource(
+            flux=tritium_atom_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_T,
+            volume=w_subdomain,
+        ),
     ]
-
-    # --- Ensure PulsedSource fenics values are created and initialised so update() runs
-    try:
-        mesh_obj = my_model.mesh.mesh if hasattr(my_model.mesh, "mesh") else my_model.mesh
-        for src in my_model.sources:
-            try:
-                # pass a plain float for initial time (create_value_fenics converts it)
-                src.create_value_fenics(mesh_obj, my_model.temperature, 0.0)
-                src.update(0.0)
-                try:
-                    sname = getattr(src.species, "name", str(src.species))
-                except Exception:
-                    sname = str(src.species)
-                # init successful for this source
-            except Exception as _e:
-                # initialization failed for this source; continue silently
-                pass
-    except Exception:
-        # non-fatal: if mesh or dolfinx not available at import time, skip init
-        pass
 
     ############ Boundary Conditions #############
-    #surface_reaction_dd = F.SurfaceReactionBC(
-    #    reactant=[mobile_D, mobile_D],
-    #    gas_pressure=0.0,
-    #    k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-    #    E_kr=0.0,
-    #    k_d0=0.0,
-    #    E_kd=0.0,
-    #    subdomain=inlet,
-    #)
+    surface_reaction_dd = F.SurfaceReactionBC(
+        reactant=[mobile_D, mobile_D],
+        gas_pressure=0,
+        k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
+        E_kr=-2,
+        k_d0=0,
+        E_kd=0,
+        subdomain=inlet,
+    )
+
+    surface_reaction_tt = F.SurfaceReactionBC(
+        reactant=[mobile_T, mobile_T],
+        gas_pressure=0,
+        k_r0=7.94e-17,
+        E_kr=-2,
+        k_d0=0,
+        E_kd=0,
+        subdomain=inlet,
+    )
+
+    surface_reaction_dt = F.SurfaceReactionBC(
+        reactant=[mobile_D, mobile_T],
+        gas_pressure=0,
+        k_r0=7.94e-17,
+        E_kr=-2,
+        k_d0=0,
+        E_kd=0,
+        subdomain=inlet,
+    )
+
+    #def Gamma_D_total(t): 
+    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
 #
-    #surface_reaction_tt = F.SurfaceReactionBC(
-    #    reactant=[mobile_T, mobile_T],
-    #    gas_pressure=0.0,
-    #    k_r0=7.94e-17,
-    #    E_kr=0.0,
-    #    k_d0=0.0,
-    #    E_kd=0.0,
-    #    subdomain=inlet,
-    #)
+    #def Gamma_T_total(t): 
+    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
 #
-    #surface_reaction_dt = F.SurfaceReactionBC(
-    #    reactant=[mobile_D, mobile_T],
-    #    gas_pressure=0.0,
-    #    k_r0=7.94e-17,
-    #    E_kr=0.0,
-    #    k_d0=0.0,
-    #    E_kd=0.0,
-    #    subdomain=inlet,
-    #)
-
-    def Gamma_D_total(t): 
-        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-
-    def Gamma_T_total(t): 
-        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-
-    # Build the two BC callables
-    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-
-    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    ## Build the two BC callables
+    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+#
+    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
     my_model.boundary_conditions = [
-        #bc_D,
-        #bc_T,
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
-        #surface_reaction_dd,
-        #surface_reaction_dt,
-        #surface_reaction_tt,
+        surface_reaction_dd,
+        surface_reaction_dt,
+        surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -619,25 +595,19 @@ def make_B_mb_model(
         ),
     ]
 
-    # --- Ensure PulsedSource fenics values are created and initialised so update() runs
-    try:
-        mesh_obj = my_model.mesh.mesh if hasattr(my_model.mesh, "mesh") else my_model.mesh
-        for src in my_model.sources:
-            try:
-                # pass a plain float for initial time (create_value_fenics converts it)
-                src.create_value_fenics(mesh_obj, my_model.temperature, 0.0)
-                src.update(0.0)
-                try:
-                    sname = getattr(src.species, "name", str(src.species))
-                except Exception:
-                    sname = str(src.species)
-                # init successful for this source
-            except Exception as _e:
-                # initialization failed for this source; continue silently
-                pass
-    except Exception:
-        # non-fatal: if mesh or dolfinx not available at import time, skip init
-        pass
+    #def Gamma_D_total(t): 
+    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+#
+    #def Gamma_T_total(t): 
+    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+#
+    ## Build the two BC callables
+    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+#
+    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
     ############# Boundary Conditions #############
     my_model.boundary_conditions = [
@@ -861,11 +831,55 @@ def make_DFW_mb_model(
     #]
 
     ############# Boundary Conditions #############
+    surface_reaction_dd = F.SurfaceReactionBC(
+        reactant=[mobile_D, mobile_D],
+        gas_pressure=0,
+        k_r0=1.75e-24,
+        E_kr=-0.594,
+        k_d0=0,
+        E_kd=0,
+        subdomain=inlet,
+    )
+
+    surface_reaction_tt = F.SurfaceReactionBC(
+        reactant=[mobile_T, mobile_T],
+        gas_pressure=0,
+        k_r0=1.75e-24,
+        E_kr=-0.594,
+        k_d0=0,
+        E_kd=0,
+        subdomain=inlet,
+    )
+
+    surface_reaction_dt = F.SurfaceReactionBC(
+        reactant=[mobile_D, mobile_T],
+        gas_pressure=0,
+        k_r0=1.75e-24,
+        E_kr=-0.594,
+        k_d0=0,
+        E_kd=0,
+        subdomain=inlet,
+    )
+
+    k_r0=1.75e-24,
+    E_kr=-0.594,
+
+    # Build the two BC callables
+    c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
+    c_sT = make_T_surface_concentration_SS(temperature, total_T_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+
+
+
     my_model.boundary_conditions = [
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
-        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
-        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
+        bc_D,
+        bc_T,
+    #    surface_reaction_dd,
+    #    surface_reaction_dt,
+    #    surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -875,15 +889,7 @@ def make_DFW_mb_model(
             F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d4.bp", field=trap4_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t4.bp", field=trap4_T),
             F.VTXTemperatureExport(f"{folder}/temperature.bp"),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d5.bp", field=trap5_D),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t5.bp", field=trap5_T),
         ]
 
     quantities = {}
@@ -896,454 +902,12 @@ def make_DFW_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    #my_model.exports.append(surface_temperature)
-    #quantities["surface_temperature"] = surface_temperature
+    surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
+    my_model.exports.append(surface_temperature)
+    quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
-    my_model.settings = CustomSettings(
-        atol=1e5,
-        rtol=1e-10,
-        max_iterations=30,
-        final_time=final_time,
-    )
-
-    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    my_model.settings.preconditioner  = "lu"       # LU factorization
-    my_model._element_for_traps = "CG"
-    return my_model, quantities
-
-
-def make_DFW_mb_model(
-    temperature: Callable | float | int,
-    deuterium_ion_flux: Callable,
-    tritium_ion_flux: Callable,
-    deuterium_atom_flux: Callable,
-    tritium_atom_flux: Callable,
-    final_time: float,
-    folder: str,
-    L: float,
-    exports=False,
-) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
-    """Create a FESTIM model for the DFW MB scenario.
-
-    Args:
-        temperature: the temperature in K.
-        deuterium_ion_flux: the deuterium ion flux in m^-2 s^-1.
-        tritium_ion_flux: the tritium ion flux in m^-2 s^-1.
-        deuterium_atom_flux: the deuterium atom flux in m^-2 s^-1.
-        tritium_atom_flux: the tritium atom flux in m^-2 s^-1.
-        final_time: the final time in s.
-        folder: the folder to save the results.
-        L: the length of the domain in m.
-
-    Returns:
-        the FESTIM model, the quantities to export.
-    """
-
-    my_model = CustomProblem()
-    
-    
-    def total_D_flux(t: float) -> float:
-        t = float(t)
-        # If you also have additional sources/sinks, sum them here.
-        return float(deuterium_ion_flux(t)) + float(deuterium_atom_flux(t))
-
-    def total_T_flux(t: float) -> float:
-        t = float(t)
-        return float(tritium_ion_flux(t)) + float(tritium_atom_flux(t))
-
-    # Tritium fraction: T_frac(t) = total_T_flux(t) / (total_T_flux(t) + total_D_flux(t))
-    # NOTE: If total flux can be exactly zero at some times, this will raise ZeroDivisionError.
-    # If you want a robust behavior there, add a small guard (e.g., return 0.0 when denom == 0).
-    def T_frac(t: float) -> float:
-        t = float(t)
-        Tt = total_T_flux(t)
-        Dt = total_D_flux(t)
-        denom = Tt + Dt
-        if denom > 0:
-            return float(Tt / denom)
-        else:
-            return 0.0
-
-
-    ############# Material Parameters #############
-
-    vertices = np.concatenate(  # 1D mesh with extra refinement
-        [
-            np.linspace(0, 30e-9, num=200),
-            np.linspace(30e-9, 3e-6, num=300),
-            np.linspace(3e-6, 30e-6, num=300),
-            np.linspace(30e-6, 1e-4, num=300),
-            np.linspace(1e-4, L, num=200),
-        ]
-    )
-    my_model.mesh = F.Mesh1D(vertices)
-
-    # TODO: pull DFW material parameters from HTM?
-
-    # from ITER mean value parameters (FIXME: add DOI)
-    ss_density = 8.45e28  # atoms/m3
-    D_0 = 1.45e-6  # m^2/s
-    E_D = 0.59  # eV
-    ss = F.Material(
-        D_0=D_0,
-        E_D=E_D,
-        name="ss",
-    )
-
-    # mb subdomains
-    ss_subdomain = F.VolumeSubdomain1D(id=1, borders=[0, L], material=ss)
-    inlet = F.SurfaceSubdomain1D(id=1, x=0)
-    outlet = F.SurfaceSubdomain1D(id=2, x=L)
-
-    my_model.subdomains = [ss_subdomain, inlet, outlet]
-
-    # hydrogen species
-    mobile_D = F.Species("D")
-    mobile_T = F.Species("T")
-
-    trap1_D = F.Species("trap1_D", mobile=False)
-    trap1_T = F.Species("trap1_T", mobile=False)
-
-    # traps
-    empty_trap1 = F.ImplicitSpecies(  # implicit trap 1
-        n=8e-2 * ss_density,  # from Guillermain D 2016 ITER report T2YEND
-        others=[trap1_T, trap1_D],
-        name="empty_trap1",
-    )
-
-    my_model.species = [
-        mobile_D,
-        mobile_T,
-        trap1_D,
-        trap1_T,
-    ]
-
-    # hydrogen reactions - 1 per trap per species
-    interstitial_distance = 2.545e-10  # m
-    interstitial_sites_per_atom = 1
-
-    my_model.reactions = [
-        F.Reaction(
-            k_0=D_0
-            / (interstitial_distance * interstitial_sites_per_atom * ss_density),
-            E_k=E_D,
-            p_0=1e13,  # from Guillermain D 2016 ITER report T2YEND
-            E_p=0.7,
-            volume=ss_subdomain,
-            reactant=[mobile_D, empty_trap1],
-            product=trap1_D,
-        ),
-        F.Reaction(
-            k_0=D_0
-            / (interstitial_distance * interstitial_sites_per_atom * ss_density),
-            E_k=E_D,
-            p_0=1e13,  # from Guillermain D 2016 ITER report T2YEND
-            E_p=0.7,
-            volume=ss_subdomain,
-            reactant=[mobile_T, empty_trap1],
-            product=trap1_T,
-        ),
-    ]
-
-    ############# Temperature Parameters (K) #############
-
-    my_model.temperature = temperature
-
-    ############# Flux Parameters #############
-
-    #my_model.sources = [
-    #    PulsedSource(
-    #        flux=deuterium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=deuterium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #]
-
-    ############# Boundary Conditions #############
-    my_model.boundary_conditions = [
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
-        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
-        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
-    ]
-
-    ############# Exports #############
-    if exports:
-        my_model.exports = [
-            F.VTXSpeciesExport(f"{folder}/mobile_concentration_t.bp", field=mobile_T),
-            F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d4.bp", field=trap4_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t4.bp", field=trap4_T),
-            F.VTXTemperatureExport(f"{folder}/temperature.bp"),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d5.bp", field=trap5_D),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t5.bp", field=trap5_T),
-        ]
-
-    quantities = {}
-    for species in my_model.species:
-        quantity = F.TotalVolume(field=species, volume=ss_subdomain)
-        my_model.exports.append(quantity)
-        quantities[species.name] = quantity
-        if species.mobile:
-            flux = F.SurfaceFlux(field=species, surface=inlet)
-            my_model.exports.append(flux)
-            quantities[species.name + "_surface_flux"] = flux
-
-    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    #my_model.exports.append(surface_temperature)
-    #quantities["surface_temperature"] = surface_temperature
-
-    ############# Settings #############
-    my_model.settings = CustomSettings(
-        atol=1e5,
-        rtol=1e-10,
-        max_iterations=30,
-        final_time=final_time,
-    )
-
-    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    my_model.settings.preconditioner  = "lu"       # LU factorization
-    my_model._element_for_traps = "CG"
-    return my_model, quantities
-
-
-def make_DFW_mb_model(
-    temperature: Callable | float | int,
-    deuterium_ion_flux: Callable,
-    tritium_ion_flux: Callable,
-    deuterium_atom_flux: Callable,
-    tritium_atom_flux: Callable,
-    final_time: float,
-    folder: str,
-    L: float,
-    exports=False,
-) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
-    """Create a FESTIM model for the DFW MB scenario.
-
-    Args:
-        temperature: the temperature in K.
-        deuterium_ion_flux: the deuterium ion flux in m^-2 s^-1.
-        tritium_ion_flux: the tritium ion flux in m^-2 s^-1.
-        deuterium_atom_flux: the deuterium atom flux in m^-2 s^-1.
-        tritium_atom_flux: the tritium atom flux in m^-2 s^-1.
-        final_time: the final time in s.
-        folder: the folder to save the results.
-        L: the length of the domain in m.
-
-    Returns:
-        the FESTIM model, the quantities to export.
-    """
-
-    my_model = CustomProblem()
-    
-    
-    def total_D_flux(t: float) -> float:
-        t = float(t)
-        # If you also have additional sources/sinks, sum them here.
-        return float(deuterium_ion_flux(t)) + float(deuterium_atom_flux(t))
-
-    def total_T_flux(t: float) -> float:
-        t = float(t)
-        return float(tritium_ion_flux(t)) + float(tritium_atom_flux(t))
-
-    # Tritium fraction: T_frac(t) = total_T_flux(t) / (total_T_flux(t) + total_D_flux(t))
-    # NOTE: If total flux can be exactly zero at some times, this will raise ZeroDivisionError.
-    # If you want a robust behavior there, add a small guard (e.g., return 0.0 when denom == 0).
-    def T_frac(t: float) -> float:
-        t = float(t)
-        Tt = total_T_flux(t)
-        Dt = total_D_flux(t)
-        denom = Tt + Dt
-        if denom > 0:
-            return float(Tt / denom)
-        else:
-            return 0.0
-
-
-    ############# Material Parameters #############
-
-    vertices = np.concatenate(  # 1D mesh with extra refinement
-        [
-            np.linspace(0, 30e-9, num=200),
-            np.linspace(30e-9, 3e-6, num=300),
-            np.linspace(3e-6, 30e-6, num=300),
-            np.linspace(30e-6, 1e-4, num=300),
-            np.linspace(1e-4, L, num=200),
-        ]
-    )
-    my_model.mesh = F.Mesh1D(vertices)
-
-    # TODO: pull DFW material parameters from HTM?
-
-    # from ITER mean value parameters (FIXME: add DOI)
-    ss_density = 8.45e28  # atoms/m3
-    D_0 = 1.45e-6  # m^2/s
-    E_D = 0.59  # eV
-    ss = F.Material(
-        D_0=D_0,
-        E_D=E_D,
-        name="ss",
-    )
-
-    # mb subdomains
-    ss_subdomain = F.VolumeSubdomain1D(id=1, borders=[0, L], material=ss)
-    inlet = F.SurfaceSubdomain1D(id=1, x=0)
-    outlet = F.SurfaceSubdomain1D(id=2, x=L)
-
-    my_model.subdomains = [ss_subdomain, inlet, outlet]
-
-    # hydrogen species
-    mobile_D = F.Species("D")
-    mobile_T = F.Species("T")
-
-    trap1_D = F.Species("trap1_D", mobile=False)
-    trap1_T = F.Species("trap1_T", mobile=False)
-
-    # traps
-    empty_trap1 = F.ImplicitSpecies(  # implicit trap 1
-        n=8e-2 * ss_density,  # from Guillermain D 2016 ITER report T2YEND
-        others=[trap1_T, trap1_D],
-        name="empty_trap1",
-    )
-
-    my_model.species = [
-        mobile_D,
-        mobile_T,
-        trap1_D,
-        trap1_T,
-    ]
-
-    # hydrogen reactions - 1 per trap per species
-    interstitial_distance = 2.545e-10  # m
-    interstitial_sites_per_atom = 1
-
-    my_model.reactions = [
-        F.Reaction(
-            k_0=D_0
-            / (interstitial_distance * interstitial_sites_per_atom * ss_density),
-            E_k=E_D,
-            p_0=1e13,  # from Guillermain D 2016 ITER report T2YEND
-            E_p=0.7,
-            volume=ss_subdomain,
-            reactant=[mobile_D, empty_trap1],
-            product=trap1_D,
-        ),
-        F.Reaction(
-            k_0=D_0
-            / (interstitial_distance * interstitial_sites_per_atom * ss_density),
-            E_k=E_D,
-            p_0=1e13,  # from Guillermain D 2016 ITER report T2YEND
-            E_p=0.7,
-            volume=ss_subdomain,
-            reactant=[mobile_T, empty_trap1],
-            product=trap1_T,
-        ),
-    ]
-
-    ############# Temperature Parameters (K) #############
-
-    my_model.temperature = temperature
-
-    ############# Flux Parameters #############
-
-    #my_model.sources = [
-    #    PulsedSource(
-    #        flux=deuterium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=deuterium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #]
-
-    ############# Boundary Conditions #############
-    my_model.boundary_conditions = [
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
-        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
-        F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
-    ]
-
-    ############# Exports #############
-    if exports:
-        my_model.exports = [
-            F.VTXSpeciesExport(f"{folder}/mobile_concentration_t.bp", field=mobile_T),
-            F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d4.bp", field=trap4_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t4.bp", field=trap4_T),
-            F.VTXTemperatureExport(f"{folder}/temperature.bp"),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d5.bp", field=trap5_D),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t5.bp", field=trap5_T),
-        ]
-
-    quantities = {}
-    for species in my_model.species:
-        quantity = F.TotalVolume(field=species, volume=ss_subdomain)
-        my_model.exports.append(quantity)
-        quantities[species.name] = quantity
-        if species.mobile:
-            flux = F.SurfaceFlux(field=species, surface=inlet)
-            my_model.exports.append(flux)
-            quantities[species.name + "_surface_flux"] = flux
-
-    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    #my_model.exports.append(surface_temperature)
-    #quantities["surface_temperature"] = surface_temperature
-
-    ############# Settings #############
-    my_model.settings = CustomSettings(
+    my_model.settings = F.Settings(
         atol=1e5,
         rtol=1e-10,
         max_iterations=30,

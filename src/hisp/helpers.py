@@ -6,79 +6,28 @@ import numpy.typing as npt
 from hisp.scenario import Pulse
 from dolfinx import fem
 import math
-import os
 
 
 class PulsedSource(F.ParticleSource):
     def __init__(self, flux, distribution, volume, species):
         """Initializes a pulsed particle source by creating a FESTIM-style
         callable value(x, t) = flux(t) * distribution(x) and forwarding it to
-        the base ParticleSource. Using a callable ensures FESTIM evaluates the
-        time-dependent value even if update/create_value_fenics are not invoked.
+        the base ParticleSource. This avoids creating fenics constants here
+        and ensures compatibility with either numeric or UFL flux expressions.
         """
         self.flux = flux
         self.distribution = distribution
 
-        # Python callable used by FESTIM to evaluate the source at assembly/runtime
-        def value_callable(x, t):
-            tt = self._t_as_float(t)
-            return self.flux(tt) * self.distribution(x)
+        def value(x, t):
+            # flux(t) may return either a Python float or a UFL expression;
+            # distribution(x) is expected to be a UFL expression.
+            return self.flux(t) * self.distribution(x)
 
-        # keep as attribute for tests/debug
-        self._fallback_value = value_callable
-
-        # Pass the callable to the base class so value is available immediately
-        super().__init__(value=value_callable, volume=volume, species=species)
-
-    @staticmethod
-    def _t_as_float(t):
-        if isinstance(t, (int, float, np.floating)):
-            return float(t)
-        v = getattr(t, "value", None)
-        if v is not None:
-            try:
-                return float(np.array(v).squeeze())
-            except Exception:
-                pass
-        return t
-
-    def create_value_fenics(self, mesh, temperature, t: Constant):
-        # initialize a Fenics Constant for the flux at time t
-        tt = self._t_as_float(t)
-        try:
-            flux_val = float(self.flux(tt))
-        except Exception:
-            # if flux can't be evaluated to float, fallback to 0.0
-            flux_val = 0.0
-        self.flux_fenics = F.as_fenics_constant(flux_val, mesh)
-        x = ufl.SpatialCoordinate(mesh)
-        self.distribution_fenics = self.distribution(x)
-        self.value_fenics = self.flux_fenics * self.distribution_fenics
-
-    def update(self, t: float):
-        # update the fenics constant value when time advances
-        tt = self._t_as_float(t)
-        try:
-            new_val = float(self.flux(tt))
-        except Exception:
-            new_val = 0.0
-        try:
-            self.flux_fenics.value = new_val
-        except Exception:
-            try:
-                setattr(self.flux_fenics, "value", new_val)
-            except Exception:
-                # give up silently; fallback callable still exists
-                pass
+        super().__init__(value=value, volume=volume, species=species)
 
     @property
     def time_dependent(self):
         return True
-
-    @property
-    def temperature_dependent(self):
-        # This pulsed source does not depend on temperature by construction.
-        return False
 
 # we override Stepsize to control the precision of milestones detection
 # TODO remove this when https://github.com/festim-dev/FESTIM/issues/933 is fixed
@@ -162,16 +111,3 @@ def periodic_pulse_function(current_time: float, pulse: Pulse, value, value_off=
             return lower_value
         else: 
             return value_off
-
-def pwl_in_time(t, times, values):
-    """UFL piecewise-linear in time. Clamps to values[0]/values[-1] outside range.
-    Args: t (UFL scalar), times (1D np array), values (1D np array)
-    Returns: UFL expression depending on t
-    """
-    expr = values[-1]
-    for t0, t1, v0, v1 in zip(times[:-1], times[1:], values[:-1], values[1:]):
-        slope = (v1 - v0) / (t1 - t0)
-        seg = v0 + slope * (t - t0)
-        expr = ufl.conditional(ufl.And(ufl.ge(t, t0), ufl.lt(t, t1)), seg, expr)
-    expr = ufl.conditional(ufl.lt(t, times[0]), values[0], expr)
-    return expr
