@@ -82,8 +82,8 @@ class Stepsize(F.Stepsize):
 # ✅ UFL-compliant Gaussian distribution
 def gaussian_distribution(x: ufl.SpatialCoordinate, mean: float, width: float) -> ufl.core.expr.Expr:
     """Generates a normalized Gaussian distribution for particle sources."""
-    normalization = 1.0 / ufl.sqrt(2 * ufl.pi * width**2)
-    return normalization * ufl.exp(-((x[0] - mean)**2) / (2 * width**2))
+    normalization = 1.0 / np.sqrt(2 * np.pi * width**2)
+    return normalization * np.exp(-((x[0] - mean)**2) / (2 * width**2))
 
 
 def periodic_step_function(x, period_on, period_total, value, value_off=0.0):
