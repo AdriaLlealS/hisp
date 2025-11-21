@@ -10,35 +10,20 @@ import math
 
 class PulsedSource(F.ParticleSource):
     def __init__(self, flux, distribution, volume, species):
-        """Initializes a pulsed particle source by creating a FESTIM-style
-        callable value(x, t) = flux(t) * distribution(x) and forwarding it to
-        the base ParticleSource. This avoids creating fenics constants here
-        and ensures compatibility with either numeric or UFL flux expressions.
-
-        The value callable converts dolfinx.fem.function.Constant (passed by
-        FESTIM during assembly) to a Python float when possible so that user
-        flux functions that require floats continue to work.
+        """Initializes a pulsed particle source that creates a Fenics constant
+        for the time-dependent flux and a UFL spatial distribution. This class
+        implements create_value_fenics and update so FESTIM can build and
+        refresh the fenics representation during the simulation.
         """
         self.flux = flux
         self.distribution = distribution
-
-        def value(x, t):
-            tt = self._t_as_float(t)
-            return self.flux(tt) * self.distribution(x)
-
-        super().__init__(value=value, volume=volume, species=species)
+        # pass None so base class will call create_value_fenics
+        super().__init__(None, volume=volume, species=species)
 
     @staticmethod
     def _t_as_float(t):
-        """Convert common FESTIM/dolfinx time objects to a Python float when
-        possible. If conversion is not possible, return the original object.
-
-        Handles: int, float, numpy scalars, and dolfinx.fem.function.Constant
-        (by reading its .value).
-        """
         if isinstance(t, (int, float, np.floating)):
             return float(t)
-        # dolfinx Constant has attribute 'value' which may be a numpy array-like
         v = getattr(t, "value", None)
         if v is not None:
             try:
@@ -46,6 +31,24 @@ class PulsedSource(F.ParticleSource):
             except Exception:
                 pass
         return t
+
+    def create_value_fenics(self, mesh, temperature, t: Constant):
+        # initialize a Fenics Constant for the flux at time t
+        tt = self._t_as_float(t)
+        flux_val = float(self.flux(tt))
+        self.flux_fenics = F.as_fenics_constant(flux_val, mesh)
+        x = ufl.SpatialCoordinate(mesh)
+        self.distribution_fenics = self.distribution(x)
+        self.value_fenics = self.flux_fenics * self.distribution_fenics
+
+    def update(self, t: float):
+        # update the fenics constant value when time advances
+        tt = self._t_as_float(t)
+        try:
+            self.flux_fenics.value = float(self.flux(tt))
+        except Exception:
+            # fallback: if fenics constant has different attribute
+            setattr(self.flux_fenics, "value", float(self.flux(tt)))
 
     @property
     def time_dependent(self):
