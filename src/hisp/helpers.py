@@ -71,16 +71,6 @@ class PulsedSource(F.ParticleSource):
                 # give up silently; fallback callable still exists
                 pass
 
-        # debug print (always enabled for now)
-        try:
-            species_name = getattr(self.species, "name", str(self.species))
-        except Exception:
-            species_name = str(self.species)
-        try:
-            print(f"[DEBUG PulsedSource.update] species={species_name}, t={tt}, flux={new_val}")
-        except Exception:
-            pass
-
     @property
     def time_dependent(self):
         return True
