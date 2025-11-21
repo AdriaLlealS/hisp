@@ -247,31 +247,39 @@ def make_W_mb_model(
             t_atom = f"ERR:{e}"
         print(f"[DEBUG flux_samples] t={tt}: D_ion={d_ion}, T_ion={t_ion}, D_atom={d_atom}, T_atom={t_atom}")
 
+    # Build time-sampled representations of the incident fluxes and create
+    # UFL-aware value callables so FESTIM sees time-dependent UFL expressions
+    # similar to how temperature is defined via pwl_in_time.
+    num_time_samples = 500
+    times_grid = np.linspace(0.0, float(final_time), num=num_time_samples)
+
+    def make_value_callable(flux_callable):
+        # sample numeric values
+        vals = np.array([float(flux_callable(ti)) for ti in times_grid], dtype=float)
+
+        def value(x, t):
+            # numeric path: t is Python float or dolfinx Constant with .value
+            try:
+                tt = float(t)
+            except Exception:
+                # UFL path: return piecewise-linear UFL expression
+                return pwl_in_time(t, times_grid, vals) * gaussian_distribution(x, implantation_range, width)
+            # numeric interpolation
+            v = float(np.interp(tt, times_grid, vals))
+            return v * gaussian_distribution(x, implantation_range, width)
+
+        return value
+
+    value_D_ion = make_value_callable(deuterium_ion_flux)
+    value_T_ion = make_value_callable(tritium_ion_flux)
+    value_D_atom = make_value_callable(deuterium_atom_flux)
+    value_T_atom = make_value_callable(tritium_atom_flux)
+
     my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
+        F.ParticleSource(volume=w_subdomain, value=value_D_ion, species=mobile_D),
+        F.ParticleSource(volume=w_subdomain, value=value_T_ion, species=mobile_T),
+        F.ParticleSource(volume=w_subdomain, value=value_D_atom, species=mobile_D),
+        F.ParticleSource(volume=w_subdomain, value=value_T_atom, species=mobile_T),
     ]
 
     # --- Ensure PulsedSource fenics values are created and initialised so update() runs
@@ -932,7 +940,7 @@ def make_DFW_mb_model(
     #quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
-    my_model.settings = F.Settings(
+    my_model.settings = CustomSettings(
         atol=1e5,
         rtol=1e-10,
         max_iterations=30,

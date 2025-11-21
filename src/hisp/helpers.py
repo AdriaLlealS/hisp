@@ -172,3 +172,16 @@ def periodic_pulse_function(current_time: float, pulse: Pulse, value, value_off=
             return lower_value
         else: 
             return value_off
+
+def pwl_in_time(t, times, values):
+    """UFL piecewise-linear in time. Clamps to values[0]/values[-1] outside range.
+    Args: t (UFL scalar), times (1D np array), values (1D np array)
+    Returns: UFL expression depending on t
+    """
+    expr = values[-1]
+    for t0, t1, v0, v1 in zip(times[:-1], times[1:], values[:-1], values[1:]):
+        slope = (v1 - v0) / (t1 - t0)
+        seg = v0 + slope * (t - t0)
+        expr = ufl.conditional(ufl.And(ufl.ge(t, t0), ufl.lt(t, t1)), seg, expr)
+    expr = ufl.conditional(ufl.lt(t, times[0]), values[0], expr)
+    return expr
