@@ -241,6 +241,26 @@ def make_W_mb_model(
         ),
     ]
 
+    # --- Ensure PulsedSource fenics values are created and initialised so update() runs
+    try:
+        from dolfinx.fem.function import Constant as _DConstant
+
+        mesh_obj = my_model.mesh.mesh if hasattr(my_model.mesh, "mesh") else my_model.mesh
+        for src in my_model.sources:
+            try:
+                src.create_value_fenics(mesh_obj, my_model.temperature, _DConstant(0.0))
+                src.update(0.0)
+                try:
+                    sname = getattr(src.species, "name", str(src.species))
+                except Exception:
+                    sname = str(src.species)
+                print(f"[DEBUG init_source] species={sname}, initial_flux={src.flux(0.0)}")
+            except Exception as _e:
+                print(f"[DEBUG init_source] failed to init source: {_e}")
+    except Exception:
+        # non-fatal: if dolfinx is not available at import time, skip init
+        pass
+
     ############ Boundary Conditions #############
     #surface_reaction_dd = F.SurfaceReactionBC(
     #    reactant=[mobile_D, mobile_D],
@@ -599,19 +619,25 @@ def make_B_mb_model(
         ),
     ]
 
-    def Gamma_D_total(t): 
-        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+    # --- Ensure PulsedSource fenics values are created and initialised so update() runs
+    try:
+        from dolfinx.fem.function import Constant as _DConstant
 
-    def Gamma_T_total(t): 
-        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-
-    # Build the two BC callables
-    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-
-    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+        mesh_obj = my_model.mesh.mesh if hasattr(my_model.mesh, "mesh") else my_model.mesh
+        for src in my_model.sources:
+            try:
+                src.create_value_fenics(mesh_obj, my_model.temperature, _DConstant(0.0))
+                src.update(0.0)
+                try:
+                    sname = getattr(src.species, "name", str(src.species))
+                except Exception:
+                    sname = str(src.species)
+                print(f"[DEBUG init_source] species={sname}, initial_flux={src.flux(0.0)}")
+            except Exception as _e:
+                print(f"[DEBUG init_source] failed to init source: {_e}")
+    except Exception:
+        # non-fatal: if dolfinx is not available at import time, skip init
+        pass
 
     ############# Boundary Conditions #############
     my_model.boundary_conditions = [
