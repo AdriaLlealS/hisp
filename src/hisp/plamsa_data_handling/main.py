@@ -91,6 +91,14 @@ class PlasmaDataHandling:
 
         value = flux * flux_frac
 
+        # debug: print intermediate flux information
+        try:
+            print(
+                f"[DEBUG get_particle_flux] pulse={pulse.pulse_type}, bin_index={bin_index}, t_rel={t_rel}, flux_raw={flux}, flux_frac={flux_frac}, value_pre_pulse={value}"
+            )
+        except Exception:
+            pass
+
         # check that heat_val is a float
         assert isinstance(
             value, (float, np.float64)
@@ -100,12 +108,19 @@ class PlasmaDataHandling:
         total_time_on = pulse.duration_no_waiting
         total_time_pulse = pulse.total_duration
 
-        return periodic_pulse_function(
+        result = periodic_pulse_function(
             t_rel,
             pulse=pulse,
             value=value,
             value_off=0,
         )
+
+        try:
+            print(f"[DEBUG get_particle_flux] result={result}")
+        except Exception:
+            pass
+
+        return result
 
     def RISP_data(self, bin: SubBin | DivBin, t_rel: float | int) -> pd.DataFrame:
         """Returns the correct RISP data file for indicated bin
@@ -251,6 +266,14 @@ class PlasmaDataHandling:
         else:
             heat_val = data["heat_total"][bin_index]
 
+        # debug: print intermediate heat information
+        try:
+            print(
+                f"[DEBUG get_heat] pulse={pulse.pulse_type}, bin_index={bin_index}, t_rel={t_rel}, heat_val={heat_val}"
+            )
+        except Exception:
+            pass
+
         # check that heat_val is a float
         assert isinstance(
             heat_val, (float, np.float64)
@@ -260,9 +283,16 @@ class PlasmaDataHandling:
         total_time_on = pulse.duration_no_waiting
         total_time_pulse = pulse.total_duration
 
-        return periodic_pulse_function(
+        result = periodic_pulse_function(
             t_rel,
             pulse=pulse,
             value=heat_val,
             value_off=0,
         )
+
+        try:
+            print(f"[DEBUG get_heat] result={result}")
+        except Exception:
+            pass
+
+        return result
