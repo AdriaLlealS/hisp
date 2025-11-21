@@ -4,6 +4,7 @@ import ufl
 import numpy as np
 import numpy.typing as npt
 from hisp.scenario import Pulse
+from dolfinx import fem
 
 
 class PulsedSource(F.ParticleSource):
@@ -27,16 +28,43 @@ class PulsedSource(F.ParticleSource):
     def time_dependent(self):
         return True
 
-    def create_value_fenics(self, mesh, temperature, t: Constant):
-        self.flux_fenics = F.as_fenics_constant(self.flux(float(t)), mesh)
+    #def create_value_fenics(self, mesh, temperature, t: Constant):
+    #    self.flux_fenics = F.as_fenics_constant(self.flux(float(t)), mesh)
+    #    x = ufl.SpatialCoordinate(mesh)
+    #    self.distribution_fenics = self.distribution(x)
+#
+    #    self.value_fenics = self.flux_fenics * self.distribution_fenics
+#
+    #def update(self, t: float):
+    #    self.flux_fenics.value = self.flux(t)
+
+
+    def create_value_fenics(self, mesh, temperature, t: fem.Constant):
+        # Convert t to float
+        t_float = float(t)
+
+        # Get flux value and validate
+        flux_value = self.flux(t_float)
+        if flux_value is None:
+            flux_value = 0.0  # No flux outside pulses
+        flux_value = float(flux_value)
+
+        # Create a proper FEniCSx Constant
+        self.flux_fenics = fem.Constant(mesh, np.array(flux_value, dtype=fem.ScalarType))
+
+        # Build distribution expression
         x = ufl.SpatialCoordinate(mesh)
         self.distribution_fenics = self.distribution(x)
 
+        # Multiply scalar Constant by UFL expression
         self.value_fenics = self.flux_fenics * self.distribution_fenics
 
     def update(self, t: float):
-        self.flux_fenics.value = self.flux(t)
-
+        # Update the flux value safely
+        flux_value = self.flux(t)
+        if flux_value is None:
+            flux_value = 0.0
+        self.flux_fenics.value = np.array(float(flux_value), dtype=fem.ScalarType)
 
 
 # we override Stepsize to control the precision of milestones detection
