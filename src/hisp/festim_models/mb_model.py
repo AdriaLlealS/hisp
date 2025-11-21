@@ -243,12 +243,11 @@ def make_W_mb_model(
 
     # --- Ensure PulsedSource fenics values are created and initialised so update() runs
     try:
-        from dolfinx.fem.function import Constant as _DConstant
-
         mesh_obj = my_model.mesh.mesh if hasattr(my_model.mesh, "mesh") else my_model.mesh
         for src in my_model.sources:
             try:
-                src.create_value_fenics(mesh_obj, my_model.temperature, _DConstant(0.0))
+                # pass a plain float for initial time (create_value_fenics converts it)
+                src.create_value_fenics(mesh_obj, my_model.temperature, 0.0)
                 src.update(0.0)
                 try:
                     sname = getattr(src.species, "name", str(src.species))
@@ -258,7 +257,7 @@ def make_W_mb_model(
             except Exception as _e:
                 print(f"[DEBUG init_source] failed to init source: {_e}")
     except Exception:
-        # non-fatal: if dolfinx is not available at import time, skip init
+        # non-fatal: if mesh or dolfinx not available at import time, skip init
         pass
 
     ############ Boundary Conditions #############
@@ -621,12 +620,11 @@ def make_B_mb_model(
 
     # --- Ensure PulsedSource fenics values are created and initialised so update() runs
     try:
-        from dolfinx.fem.function import Constant as _DConstant
-
         mesh_obj = my_model.mesh.mesh if hasattr(my_model.mesh, "mesh") else my_model.mesh
         for src in my_model.sources:
             try:
-                src.create_value_fenics(mesh_obj, my_model.temperature, _DConstant(0.0))
+                # pass a plain float for initial time (create_value_fenics converts it)
+                src.create_value_fenics(mesh_obj, my_model.temperature, 0.0)
                 src.update(0.0)
                 try:
                     sname = getattr(src.species, "name", str(src.species))
@@ -636,7 +634,7 @@ def make_B_mb_model(
             except Exception as _e:
                 print(f"[DEBUG init_source] failed to init source: {_e}")
     except Exception:
-        # non-fatal: if dolfinx is not available at import time, skip init
+        # non-fatal: if mesh or dolfinx not available at import time, skip init
         pass
 
     ############# Boundary Conditions #############
