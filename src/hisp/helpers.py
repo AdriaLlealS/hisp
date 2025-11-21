@@ -10,24 +10,34 @@ import math
 
 class PulsedSource(F.ParticleSource):
     def __init__(self, flux, distribution, volume, species):
-        """Initializes a pulsed particle source by creating a FESTIM-style
-        callable value(x, t) = flux(t) * distribution(x) and forwarding it to
-        the base ParticleSource. This avoids creating fenics constants here
-        and ensures compatibility with either numeric or UFL flux expressions.
+        """Initalizes flux and distribution for PulsedSource.
+
+        Args:
+            flux (callable): the input flux value from DINA data
+            distribution (function of x): distribution of flux throughout mb
+            volume (F.VolumeSubdomain1D): volume where this flux is imposed
+            species (F.species): species of flux (e.g. D/T)
+
+        Returns:
+            flux and distribution of species.
         """
         self.flux = flux
         self.distribution = distribution
-
-        def value(x, t):
-            # flux(t) may return either a Python float or a UFL expression;
-            # distribution(x) is expected to be a UFL expression.
-            return self.flux(t) * self.distribution(x)
-
-        super().__init__(value=value, volume=volume, species=species)
+        super().__init__(None, volume, species)
 
     @property
     def time_dependent(self):
         return True
+
+    def create_value_fenics(self, mesh, temperature, t: Constant):
+        self.flux_fenics = F.as_fenics_constant(self.flux(float(t)), mesh)
+        x = ufl.SpatialCoordinate(mesh)
+        self.distribution_fenics = self.distribution(x)
+
+        self.value_fenics = self.flux_fenics * self.distribution_fenics
+
+    def update(self, t: float):
+        self.flux_fenics.value = self.flux(t)
 
 # we override Stepsize to control the precision of milestones detection
 # TODO remove this when https://github.com/festim-dev/FESTIM/issues/933 is fixed
