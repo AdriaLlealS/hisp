@@ -11,23 +11,23 @@ import os
 
 class PulsedSource(F.ParticleSource):
     def __init__(self, flux, distribution, volume, species):
-        """Initializes a pulsed particle source that creates a Fenics constant
-        for the time-dependent flux and a UFL spatial distribution. This class
-        implements create_value_fenics and update so FESTIM can build and
-        refresh the fenics representation during the simulation.
-
-        Also provide a FESTIM-compatible Python callable `value(x,t)` as a
-        fallback so `value` is never None when the variational form is built.
+        """Initializes a pulsed particle source by creating a FESTIM-style
+        callable value(x, t) = flux(t) * distribution(x) and forwarding it to
+        the base ParticleSource. Using a callable ensures FESTIM evaluates the
+        time-dependent value even if update/create_value_fenics are not invoked.
         """
         self.flux = flux
         self.distribution = distribution
 
-        # fallback callable (robust to dolfinx Constant/time scalars)
+        # Python callable used by FESTIM to evaluate the source at assembly/runtime
         def value_callable(x, t):
             tt = self._t_as_float(t)
             return self.flux(tt) * self.distribution(x)
 
-        # pass the fallback callable to the base class so `value` is set
+        # keep as attribute for tests/debug
+        self._fallback_value = value_callable
+
+        # Pass the callable to the base class so value is available immediately
         super().__init__(value=value_callable, volume=volume, species=species)
 
     @staticmethod
