@@ -251,14 +251,6 @@ class PlasmaDataHandling:
         else:
             heat_val = data["heat_total"][bin_index]
 
-        # debug: print intermediate heat information
-        try:
-            print(
-                f"[DEBUG get_heat] pulse={pulse.pulse_type}, bin_index={bin_index}, t_rel={t_rel}, heat_val={heat_val}"
-            )
-        except Exception:
-            pass
-
         # check that heat_val is a float
         assert isinstance(
             heat_val, (float, np.float64)
