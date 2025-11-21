@@ -1,57 +1,36 @@
 import festim as F
-from dolfinx import fem
-from dolfinx.fem import Constant
+from dolfinx.fem.function import Constant
 import ufl
 import numpy as np
-import math
+import numpy.typing as npt
 from hisp.scenario import Pulse
+from dolfinx import fem
+import math
 
 
 class PulsedSource(F.ParticleSource):
     def __init__(self, flux, distribution, volume, species):
-        """
-        Initializes flux and distribution for PulsedSource.
-
-        Args:
-            flux (callable): time-dependent flux function (m^-2 s^-1)
-            distribution (function): spatial distribution function returning UFL expr
-            volume (F.VolumeSubdomain1D): volume where flux is imposed
-            species (F.Species): species of flux (e.g., D/T)
+        """Initializes a pulsed particle source by creating a FESTIM-style
+        callable value(x, t) = flux(t) * distribution(x) and forwarding it to
+        the base ParticleSource. This avoids creating fenics constants here
+        and ensures compatibility with either numeric or UFL flux expressions.
         """
         self.flux = flux
         self.distribution = distribution
-        super().__init__(None, volume, species)
+
+        def value(x, t):
+            # flux(t) may return either a Python float or a UFL expression;
+            # distribution(x) is expected to be a UFL expression.
+            return self.flux(t) * self.distribution(x)
+
+        super().__init__(value=value, volume=volume, species=species)
 
     @property
     def time_dependent(self):
         return True
 
-    def create_value_fenics(self, mesh, temperature, t: Constant):
-        # Compute flux value safely
-        flux_value = self.flux(float(t))
-        if flux_value is None or math.isnan(flux_value):
-            flux_value = 0.0
-
-        # Create a proper DOLFINx Constant
-        self.flux_fenics = fem.Constant(mesh, np.array(float(flux_value), dtype=fem.ScalarType))
-
-        # Build UFL distribution
-        x = ufl.SpatialCoordinate(mesh)
-        self.distribution_fenics = self.distribution(x)
-        if self.distribution_fenics is None:
-            raise RuntimeError("distribution(x) returned None")
-
-        # Combine flux and distribution into a UFL expression
-        self.value_fenics = self.flux_fenics * self.distribution_fenics
-
-    def update(self, t: float):
-        flux_value = self.flux(t)
-        if flux_value is None or math.isnan(flux_value):
-            flux_value = 0.0
-        self.flux_fenics.value = np.array(float(flux_value), dtype=fem.ScalarType)
-
-
-# Override Stepsize for FESTIM milestone precision
+# we override Stepsize to control the precision of milestones detection
+# TODO remove this when https://github.com/festim-dev/FESTIM/issues/933 is fixed
 class Stepsize(F.Stepsize):
     def modify_value(self, value, nb_iterations, t=None):
         if not self.is_adapt(t):
@@ -78,31 +57,57 @@ class Stepsize(F.Stepsize):
 
         return updated_value
 
+def gaussian_distribution(
+    x: npt.NDArray, mean: float, width: float, mod=ufl
+) -> ufl.core.expr.Expr:
+    """Generates a gaussian distribution for particle sources.
 
-# ✅ UFL-compliant Gaussian distribution
-def gaussian_distribution(x: ufl.SpatialCoordinate, mean: float, width: float) -> ufl.core.expr.Expr:
-    """Generates a normalized Gaussian distribution for particle sources."""
-    normalization = 1.0 / np.sqrt(2 * np.pi * width**2)
-    return normalization * np.exp(-((x[0] - mean)**2) / (2 * width**2))
+    Args:
+        x (npt.NDArray): x values along the length of given bin.
+        mean (float): Mean of the distribution.
+        width (float): Width of the gaussian distribution.
+        mod (_type_, optional): Module used to express gaussian distribution. Defaults to ufl.
+
+    Returns:
+        ufl.core.expr.Expr: Gaussian distribution with area 1.  
+    """
+    return mod.exp(-((x[0] - mean) ** 2) / (2 * width**2)) / (
+        np.sqrt(2 * np.pi * width**2)
+    )
 
 
 def periodic_step_function(x, period_on, period_total, value, value_off=0.0):
-    """Creates a periodic step function with two periods."""
+    """
+    Creates a periodic step function with two periods.
+    """
+
     if period_total < period_on:
         raise ValueError("period_total must be greater than period_on")
-    return value if (x % period_total) < period_on else value_off
 
-
+    if x % period_total < period_on:
+        return value
+    else:
+        return value_off
+    
 def periodic_pulse_function(current_time: float, pulse: Pulse, value, value_off=343.0):
-    """Creates bake function with ramp up/down and steady state."""
+    """Creates bake function with ramp up rate and ramp down rate.
+
+    Args:
+        current_time (float): time within the pulse 
+        pulse (Pulse): pulse of HISP Pulse class
+        value (float): steady-state value 
+        value_off (float): value at t=0 and t=final time. 
+    """
+    
     if current_time == pulse.total_duration:
         return value_off
-    elif current_time % pulse.total_duration < pulse.ramp_up:  # ramp up
-        return (value - value_off) / pulse.ramp_up * current_time + value_off
-    elif current_time % pulse.total_duration < pulse.ramp_up + pulse.steady_state:  # steady state
+    elif current_time % pulse.total_duration < pulse.ramp_up: # ramp up 
+        return (value - value_off) / (pulse.ramp_up) * current_time + value_off # y = mx + b, slope is temp/ramp up time
+    elif current_time % pulse.total_duration < pulse.ramp_up + pulse.steady_state: # steady state
         return value
-    else:  # ramp down
-        lower_value = value - (value - value_off) / pulse.ramp_down * (
-            current_time - (pulse.ramp_up + pulse.steady_state)
-        )
-        return lower_value if lower_value >= value_off else value_off
+    else: # ramp down, waiting
+        lower_value = value - (value - value_off)/pulse.ramp_down * (current_time - (pulse.ramp_up + pulse.steady_state)) # y = mx + b, slope is temp/ramp down time
+        if lower_value >= value_off: 
+            return lower_value
+        else: 
+            return value_off
