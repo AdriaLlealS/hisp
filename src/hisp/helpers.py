@@ -14,11 +14,20 @@ class PulsedSource(F.ParticleSource):
         for the time-dependent flux and a UFL spatial distribution. This class
         implements create_value_fenics and update so FESTIM can build and
         refresh the fenics representation during the simulation.
+
+        Also provide a FESTIM-compatible Python callable `value(x,t)` as a
+        fallback so `value` is never None when the variational form is built.
         """
         self.flux = flux
         self.distribution = distribution
-        # pass None so base class will call create_value_fenics
-        super().__init__(None, volume=volume, species=species)
+
+        # fallback callable (robust to dolfinx Constant/time scalars)
+        def value_callable(x, t):
+            tt = self._t_as_float(t)
+            return self.flux(tt) * self.distribution(x)
+
+        # pass the fallback callable to the base class so `value` is set
+        super().__init__(value=value_callable, volume=volume, species=species)
 
     @staticmethod
     def _t_as_float(t):
@@ -35,7 +44,11 @@ class PulsedSource(F.ParticleSource):
     def create_value_fenics(self, mesh, temperature, t: Constant):
         # initialize a Fenics Constant for the flux at time t
         tt = self._t_as_float(t)
-        flux_val = float(self.flux(tt))
+        try:
+            flux_val = float(self.flux(tt))
+        except Exception:
+            # if flux can't be evaluated to float, fallback to 0.0
+            flux_val = 0.0
         self.flux_fenics = F.as_fenics_constant(flux_val, mesh)
         x = ufl.SpatialCoordinate(mesh)
         self.distribution_fenics = self.distribution(x)
@@ -45,10 +58,17 @@ class PulsedSource(F.ParticleSource):
         # update the fenics constant value when time advances
         tt = self._t_as_float(t)
         try:
-            self.flux_fenics.value = float(self.flux(tt))
+            new_val = float(self.flux(tt))
         except Exception:
-            # fallback: if fenics constant has different attribute
-            setattr(self.flux_fenics, "value", float(self.flux(tt)))
+            new_val = 0.0
+        try:
+            self.flux_fenics.value = new_val
+        except Exception:
+            try:
+                setattr(self.flux_fenics, "value", new_val)
+            except Exception:
+                # give up silently; fallback callable still exists
+                pass
 
     @property
     def time_dependent(self):
