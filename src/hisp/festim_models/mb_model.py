@@ -1132,6 +1132,8 @@ def make_particle_flux_function(
 
         # get the pulse and time relative to the start of the pulse
         pulse = scenario.get_pulse(t)
+        if pulse is None:
+            return 0.0
         relative_time = t - scenario.get_time_start_current_pulse(t)
         relative_time_within_pulse = relative_time % pulse.total_duration
 
@@ -1142,6 +1144,8 @@ def make_particle_flux_function(
             t_rel=relative_time_within_pulse,
             ion=ion,
         )
+        if incident_hydrogen_particle_flux is None:
+            return 0.0
 
         # if tritium is requested, multiply by tritium fraction
         if tritium:
