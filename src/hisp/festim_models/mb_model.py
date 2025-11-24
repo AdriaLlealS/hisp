@@ -25,6 +25,13 @@ import csv
 implantation_range = 3e-9  # m
 width = 1e-9  # m
 
+def graded_vertices(L, h0, r):
+        xs = [0.0]; h = h0
+        while xs[-1] + h < L:
+            xs.append(xs[-1] + h); h *= r
+        if xs[-1] < L: xs.append(L)
+        return np.array(xs)
+
 
 def make_W_mb_model(
     temperature: Callable | float | int,
@@ -58,14 +65,7 @@ def make_W_mb_model(
     my_model = CustomProblem()
 
     ############# Material Parameters #############
-
-    def graded_vertices(L, h0, r):
-        xs = [0.0]; h = h0
-        while xs[-1] + h < L:
-            xs.append(xs[-1] + h); h *= r
-        if xs[-1] < L: xs.append(L)
-        return np.array(xs)
-    
+    #     
     vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
 
     vertices = np.concatenate(  # 1D mesh with extra refinement
@@ -402,7 +402,10 @@ def make_B_mb_model(
             np.linspace(1e-7, L, num=500),
         ]
     )
-    my_model.mesh = F.Mesh1D(vertices)
+
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.008)
+
+    my_model.mesh = F.Mesh1D(vertices_graded)
 
     # B material parameters from Etienne Hodilles's unpublished TDS study for boron
     b_density = 1.34e29  # atoms/m3
