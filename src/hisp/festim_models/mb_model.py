@@ -4,6 +4,7 @@ from hisp.helpers import (
     gaussian_distribution,
     Stepsize,
     periodic_pulse_function,
+    XDMFExportEveryDt
 )
 from hisp.scenario import Scenario
 from hisp.plamsa_data_handling import PlasmaDataHandling
@@ -214,84 +215,86 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
-    my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-    ]
+    #my_model.sources = [
+    #    PulsedSource(
+    #        flux=deuterium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=deuterium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=w_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=w_subdomain,
+    #    ),
+    #]
 
     ############ Boundary Conditions #############
-    surface_reaction_dd = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_D],
-        gas_pressure=0,
-        k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_tt = F.SurfaceReactionBC(
-        reactant=[mobile_T, mobile_T],
-        gas_pressure=0,
-        k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_dt = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_T],
-        gas_pressure=0,
-        k_r0=7.94e-17,
-        E_kr=-2,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+    #surface_reaction_dd = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_D],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
 #
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+    #surface_reaction_tt = F.SurfaceReactionBC(
+    #    reactant=[mobile_T, mobile_T],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
 #
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    #surface_reaction_dt = F.SurfaceReactionBC(
+    #    reactant=[mobile_D, mobile_T],
+    #    gas_pressure=0,
+    #    k_r0=7.94e-17,
+    #    E_kr=-2,
+    #    k_d0=0,
+    #    E_kd=0,
+    #    subdomain=inlet,
+    #)
+
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+
+    # Build the two BC callables
+    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
 
 
     my_model.boundary_conditions = [
-        surface_reaction_dd,
-        surface_reaction_dt,
-        surface_reaction_tt,
+        bc_D,
+        bc_T,
+        #surface_reaction_dd,
+        #surface_reaction_dt,
+        #surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -307,6 +310,24 @@ def make_W_mb_model(
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
         ]
+
+    MIN_DT1 = 1.0; MIN_DT2 = 10.0; SWITCH = 1000.0
+    restart_times = [final_time]  # keep your set
+
+    my_model.exports = [
+        XDMFExportEveryDt(f"{folder}/mobile_concentration_d.xdmf", field=mobile_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/mobile_concentration_t.xdmf", field=mobile_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_d1.xdmf", field=trap1_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_t1.xdmf", field=trap1_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_d2.xdmf", field=trap2_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_t2.xdmf", field=trap2_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        F.VTXSpeciesExport(f"{folder}/mobile_concentration_t.bp", field=mobile_T, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T, checkpoint=True, times=restart_times),
+    ]
 
     quantities = {}
     for species in my_model.species:
@@ -568,51 +589,53 @@ def make_B_mb_model(
 
     ############# Flux Parameters #############
 
-    my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
-        ),
-    ]
+    #my_model.sources = [
+    #    PulsedSource(
+    #        flux=deuterium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=b_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_ion_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=b_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=deuterium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_D,
+    #        volume=b_subdomain,
+    #    ),
+    #    PulsedSource(
+    #        flux=tritium_atom_flux,
+    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+    #        species=mobile_T,
+    #        volume=b_subdomain,
+    #    ),
+    #]
 
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-#
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-#
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+
+    # Build the two BC callables
+    c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
+    c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
+
+    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
+    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
     ############# Boundary Conditions #############
     my_model.boundary_conditions = [
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        bc_D,
+        bc_T,
         F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
         F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
     ]
@@ -634,6 +657,32 @@ def make_B_mb_model(
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d5.bp", field=trap5_D),
             # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t5.bp", field=trap5_T),
         ]
+
+    MIN_DT1 = 1.0; MIN_DT2 = 10.0; SWITCH = 1000.0
+    restart_times = [final_time]  # keep your set
+
+    my_model.exports = [
+        XDMFExportEveryDt(f"{folder}/mobile_concentration_d.xdmf", field=mobile_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/mobile_concentration_t.xdmf", field=mobile_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_d1.xdmf", field=trap1_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_t1.xdmf", field=trap1_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_d2.xdmf", field=trap2_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_t2.xdmf", field=trap2_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_d3.xdmf", field=trap3_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_t3.xdmf", field=trap3_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_d4.xdmf", field=trap4_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        XDMFExportEveryDt(f"{folder}/trapped_concentration_t4.xdmf", field=trap4_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+        F.VTXSpeciesExport(f"{folder}/mobile_concentration_t.bp", field=mobile_T, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_d4.bp", field=trap4_D, checkpoint=True, times=restart_times),
+        F.VTXSpeciesExport(f"{folder}/trapped_concentration_t4.bp", field=trap4_T, checkpoint=True, times=restart_times),
+    ]
 
     quantities = {}
     for species in my_model.species:

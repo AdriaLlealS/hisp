@@ -6,6 +6,7 @@ import numpy.typing as npt
 from hisp.scenario import Pulse
 from dolfinx import fem
 import math
+from festim import XDMFExport
 
 
 class PulsedSource(F.ParticleSource):
@@ -121,3 +122,43 @@ def periodic_pulse_function(current_time: float, pulse: Pulse, value, value_off=
             return lower_value
         else: 
             return value_off
+
+class XDMFExportEveryDt(XDMFExport):
+    """
+    Write to XDMF only if enough time has elapsed since the last write.
+    Uses min_dt1 for t <= switch and min_dt2 for t > switch.
+
+    Parameters
+    ----------
+    filename : str
+        Path for the XDMF file(s).
+    field : str or festim Field
+        What to export (same as base XDMFExport).
+    min_dt1 : float
+        Minimum time spacing before `switch` (inclusive).
+    min_dt2 : float
+        Minimum time spacing after `switch` (strictly greater).
+    switch : float
+        Time at which the cadence changes from min_dt1 to min_dt2.
+    atol : float, optional
+        Small tolerance to account for floating point accumulation.
+        Default is 0.0 (set e.g. 1e-12 if needed).
+    """
+    def __init__(self, filename, field, min_dt1: float, min_dt2: float, switch: float, atol: float = 0.0):
+        super().__init__(filename, field)
+        self._min_dt1 = float(min_dt1)
+        self._min_dt2 = float(min_dt2)
+        self._switch = float(switch)
+        self._atol = float(atol)
+        self._last_t = None
+
+    def _current_min_dt(self, t: float) -> float:
+        return self._min_dt2 if t > self._switch else self._min_dt1
+
+    def write(self, t: float):
+        t = float(t)
+        min_dt = self._current_min_dt(t)
+
+        if (self._last_t is None) or ((t - self._last_t) >= (min_dt - self._atol)):
+            super().write(t)
+            self._last_t = t
