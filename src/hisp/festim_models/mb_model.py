@@ -21,6 +21,7 @@ from numpy.typing import NDArray
 
 import math
 import csv
+import ufl
 
 # TODO this is hard coded and should depend on incident energy?
 implantation_range = 3e-9  # m

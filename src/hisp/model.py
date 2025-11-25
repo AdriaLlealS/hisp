@@ -8,6 +8,7 @@ This file is designed to be a drop-in replacement for model(2).txt.
 """
 from typing import List
 import numpy as np
+import ufl
 
 # NOTE: fixed import name (plasma_data_handling)
 from hisp.plamsa_data_handling import PlasmaDataHandling
