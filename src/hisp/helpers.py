@@ -163,7 +163,7 @@ class XDMFExportEveryDt(XDMFExport):
             super().write(t)
             self._last_t = t
 
-def gaussian_implantation_ufl(Rp, sigma, J_t, axis=0, thickness=None):
+def gaussian_implantation_ufl(Rp, sigma, axis=0, thickness=None):
     """
     Returns callable value(x, t) -> UFL expression S(x,t) [m^-3 s^-1]
     - Rp, sigma in meters
@@ -174,10 +174,10 @@ def gaussian_implantation_ufl(Rp, sigma, J_t, axis=0, thickness=None):
     inv_sqrt_2pi = 1.0 / np.sqrt(2.0 * np.pi)
     if thickness is None:
         norm = inv_sqrt_2pi / sigma
-        def value(x, t):
+        def value(x):
             xi = x[axis]
             z  = (xi - Rp) / sigma
-            return norm * ufl.exp(-0.5 * z * z) * J_t(t)
+            return norm * ufl.exp(-0.5 * z * z)
         return value
     else:
         # Renormalize over [0, thickness]
@@ -186,10 +186,10 @@ def gaussian_implantation_ufl(Rp, sigma, J_t, axis=0, thickness=None):
         b = (thickness - Rp) / (sigma * sqrt(2.0))
         C = max(0.5 * (erf(b) - erf(a)), 1e-12)        # in-domain Gaussian mass
         norm = (inv_sqrt_2pi / sigma) / C
-        def value(x, t):
+        def value(x):
             xi = x[axis]
             z  = (xi - Rp) / sigma
-            return norm * ufl.exp(-0.5 * z * z) * J_t(t)
+            return norm * ufl.exp(-0.5 * z * z)
         return value
     
 def periodic_pulse_ufl(t, pulse, value, value_off=343.0):
