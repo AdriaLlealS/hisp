@@ -191,3 +191,44 @@ def gaussian_implantation_ufl(Rp, sigma, J_t, axis=0, thickness=None):
             z  = (xi - Rp) / sigma
             return norm * ufl.exp(-0.5 * z * z) * J_t(t)
         return value
+    
+def periodic_pulse_ufl(t, pulse, value, value_off=343.0):
+    """
+    UFL symbolic version of periodic_pulse_function.
+    Args:
+        t: UFL expression (time)
+        pulse: Pulse object with ramp_up, steady_state, ramp_down, waiting
+        value: UFL expression or Constant (steady-state value)
+        value_off: float or UFL Constant (off value)
+    Returns:
+        UFL expression representing the piecewise ramp profile.
+    """
+
+    # Compute relative time within one pulse cycle (no modulo in UFL)
+    tau = t  # Assume t is within [0, pulse.total_duration] for now
+
+    # Conditions for each phase
+    within_up = ufl.lt(tau, pulse.ramp_up)
+    within_steady = ufl.And(ufl.ge(tau, pulse.ramp_up),
+                             ufl.lt(tau, pulse.ramp_up + pulse.steady_state))
+    within_down = ufl.And(ufl.ge(tau, pulse.ramp_up + pulse.steady_state),
+                          ufl.lt(tau, pulse.ramp_up + pulse.steady_state + pulse.ramp_down))
+    # Waiting phase: tau >= ramp_up + steady_state + ramp_down
+
+    # Ramp-up: linear interpolation
+    up_val = (value - value_off) / pulse.ramp_up * tau + value_off
+
+    # Ramp-down: linear decrease
+    down_val = value - (value - value_off) / pulse.ramp_down * (tau - (pulse.ramp_up + pulse.steady_state))
+    down_val = ufl.conditional(ufl.ge(down_val, value_off), down_val, value_off)
+
+    # Piecewise conditional chain
+    shape = ufl.conditional(
+        within_up, up_val,
+        ufl.conditional(
+            within_steady, value,
+            ufl.conditional(within_down, down_val, value_off)
+        )
+    )
+
+    return shape

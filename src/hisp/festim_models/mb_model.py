@@ -219,25 +219,25 @@ def make_W_mb_model(
 
     my_model.sources = [
         F.ParticleSource(
-            value = lambda x: deuterium_ion_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,deuterium_ion_flux ,0,L),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x: deuterium_atom_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,deuterium_atom_flux ,0,L),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: tritium_ion_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,tritium_ion_flux ,0,L), 
             volume = w_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: tritium_atom_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,tritium_atom_flux ,0,L),
             volume = w_subdomain,
             species = mobile_T,
         ),
@@ -572,25 +572,25 @@ def make_B_mb_model(
 
     my_model.sources = [
         F.ParticleSource(
-            value = lambda x: deuterium_ion_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,deuterium_ion_flux ,0,L),
             volume = b_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x: deuterium_atom_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,deuterium_atom_flux ,0,L),
             volume = b_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x: tritium_ion_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,tritium_ion_flux ,0,L),
             volume = b_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = lambda x: tritium_atom_flux * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            value = gaussian_implantation_ufl(implantation_range,width,tritium_atom_flux ,0,L),
             volume = b_subdomain,
             species = mobile_T,
         ),
@@ -1205,59 +1205,68 @@ def make_T_surface_concentration_SS(T_fun, flux_fun, T_frac, D0, kr0, E_D, E_k, 
     return c_ST_SS
 
 
+
+import ufl
+from typing import Any, Callable
+
 def make_particle_flux_ufl_function(
-    scenario: Scenario,
-    plasma_data_handling: PlasmaDataHandling,
-    bin: hisp.bin.SubBin | hisp.bin.DivBin,
+    scenario,
+    plasma_data_handling,
+    bin,
     ion: bool,
     tritium: bool,
 ) -> Callable[[Any], Any]:
     """
     Returns a function that calculates the particle flux as a UFL expression based on time.
-
-    Args:
-        scenario: the Scenario object containing the pulses
-        plasma_data_handling: the object containing the plasma data
-        bin: the bin/subbin to get the temperature function for
-        ion: whether to get the ion flux
-        tritium: whether to get the tritium flux
-
-    Returns:
-        a callable of t (UFL expression) returning the incident particle flux in m^-2 s^-1
     """
 
     def particle_flux_ufl(t: Any) -> Any:
-        # We cannot use Python's modulo or pulse lookup directly in UFL,
-        # so we need to precompute a piecewise representation of the pulses.
-
-        # Build a UFL conditional chain for all pulses
         flux_expr = 0.0
+
+        # Loop over all pulses in the scenario
         for pulse in scenario.pulses:
-            start = pulse.start_time
-            end = pulse.start_time + pulse.total_duration
+            # Compute relative time within this pulse (symbolically)
+            tau = t - scenario.get_time_start_current_pulse(pulse.start_time)
 
-            # Relative time within pulse (wrap with modulo if needed)
-            # NOTE: UFL doesn't support modulo, so if periodicity is needed,
-            # you must approximate or ignore it.
-            t_rel = t - start
+            # Build the ramp profile using UFL conditionals
+            # Ramp-up, steady-state, ramp-down, waiting
+            within_up = ufl.lt(tau, pulse.ramp_up)
+            within_steady = ufl.And(ufl.ge(tau, pulse.ramp_up),
+                                     ufl.lt(tau, pulse.ramp_up + pulse.steady_state))
+            within_down = ufl.And(ufl.ge(tau, pulse.ramp_up + pulse.steady_state),
+                                   ufl.lt(tau, pulse.ramp_up + pulse.steady_state + pulse.ramp_down))
 
-            # Get flux for this pulse as a constant or UFL expression
-            incident_flux = plasma_data_handling.get_particle_flux(
+            # Base flux value (numeric from PlasmaDataHandling)
+            # NOTE: UFL cannot call Python logic dynamically, so we lift numeric value as Constant
+            plateau_val = plasma_data_handling.get_particle_flux(
                 pulse=pulse,
                 bin=bin,
-                t_rel=t_rel,
+                t_rel=0.0,  # symbolic version ignores modulo
                 ion=ion,
             )
+            frac = pulse.tritium_fraction if tritium else (1 - pulse.tritium_fraction)
+            plateau = ufl.Constant(plateau_val * frac)
 
-            # Apply tritium fraction
-            if tritium:
-                incident_flux *= pulse.tritium_fraction
-            else:
-                incident_flux *= (1 - pulse.tritium_fraction)
+            # Ramp-up and ramp-down symbolic expressions
+            up_val = (plateau - 0.0) / pulse.ramp_up * tau
+            down_val = plateau - (plateau - 0.0) / pulse.ramp_down * (tau - (pulse.ramp_up + pulse.steady_state))
+            down_val = ufl.conditional(ufl.ge(down_val, 0.0), down_val, 0.0)
 
-            # Add conditional for active pulse
-            flux_expr += ufl.conditional(ufl.And(ufl.ge(t, start), ufl.lt(t, end)), incident_flux, 0.0)
+            # Piecewise shape
+            shape = ufl.conditional(
+                within_up, up_val,
+                ufl.conditional(
+                    within_steady, plateau,
+                    ufl.conditional(within_down, down_val, 0.0)
+                )
+            )
+
+            # Activate only during this pulse window
+            active = ufl.And(ufl.ge(t, pulse.start_time),
+                             ufl.lt(t, pulse.start_time + pulse.total_duration))
+            flux_expr += ufl.conditional(active, shape, 0.0)
 
         return flux_expr
 
     return particle_flux_ufl
+
