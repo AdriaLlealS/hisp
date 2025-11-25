@@ -577,12 +577,12 @@ def make_B_mb_model(
     my_model.sources = [
         F.ParticleSource(
             value = source_D,
-            volume = w_subdomain,
+            volume = b_subdomain,
             species = mobile_D
         ),
         F.ParticleSource(
             value = source_T,
-            volume = w_subdomain,
+            volume = b_subdomain,
             species = mobile_T
         )
     ]
