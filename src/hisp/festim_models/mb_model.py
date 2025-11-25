@@ -219,25 +219,25 @@ def make_W_mb_model(
 
     my_model.sources = [
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(deuterium_ion_flux(t))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: ufl.Constant(float(deuterium_ion_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(deuterium_atom_flux(t))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: ufl.Constant(float(deuterium_atom_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(tritium_ion_flux(t))*gaussian_implantation_ufl(implantation_range,width,0,L)(x), 
+            value = lambda x,t: ufl.Constant(float(tritium_ion_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x), 
             volume = w_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(tritium_atom_flux(t))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: ufl.Constant(float(tritium_atom_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
             volume = w_subdomain,
             species = mobile_T,
         ),
