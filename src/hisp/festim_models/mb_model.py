@@ -1,3 +1,4 @@
+from builtins import ValueError, bool, callable, float, int, isinstance, str, type
 from hisp.h_transport_class import CustomProblem
 from hisp.helpers import (
     PulsedSource,
@@ -22,6 +23,13 @@ import math
 # TODO this is hard coded and should depend on incident energy?
 implantation_range = 3e-9  # m
 width = 1e-9  # m
+
+def graded_vertices(L, h0, r):
+        xs = [0.0]; h = h0
+        while xs[-1] + h < L:
+            xs.append(xs[-1] + h); h *= r
+        if xs[-1] < L: xs.append(L)
+        return np.array(xs)
 
 
 def make_W_mb_model(
@@ -56,23 +64,9 @@ def make_W_mb_model(
     my_model = CustomProblem()
 
     ############# Material Parameters #############
-
-    def graded_vertices(L, h0, r):
-        xs = [0.0]; h = h0
-        while xs[-1] + h < L:
-            xs.append(xs[-1] + h); h *= r
-        if xs[-1] < L: xs.append(L)
-        return np.array(xs)
     
     vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
 
-    vertices = np.concatenate(  # 1D mesh with extra refinement
-        [
-            np.linspace(0, 1e-5, num=100),
-            np.linspace(1e-5, 1e-4, num=300),
-            np.linspace(1e-4, L, num=300),
-        ]
-    )
     my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
@@ -212,64 +206,6 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
-    #my_model.sources = [
-    #    PulsedSource(
-    #        flux=deuterium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=w_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=w_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=deuterium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=w_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=w_subdomain,
-    #    ),
-    #]
-
-    ############# Boundary Conditions #############
-    #surface_reaction_dd = F.SurfaceReactionBC(
-    #    reactant=[mobile_D, mobile_D],
-    #    gas_pressure=0,
-    #    k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-    #    E_kr=-2,
-    #    k_d0=0,
-    #    E_kd=0,
-    #    subdomain=inlet,
-    #)
-
-    #surface_reaction_tt = F.SurfaceReactionBC(
-    #    reactant=[mobile_T, mobile_T],
-    #    gas_pressure=0,
-    #    k_r0=7.94e-17,
-    #    E_kr=-2,
-    #    k_d0=0,
-    #    E_kd=0,
-    #    subdomain=inlet,
-    #)
-
-    #surface_reaction_dt = F.SurfaceReactionBC(
-    #    reactant=[mobile_D, mobile_T],
-    #    gas_pressure=0,
-    #    k_r0=7.94e-17,
-    #    E_kr=-2,
-    #    k_d0=0,
-    #    E_kd=0,
-    #    subdomain=inlet,
-    #)
-
     def Gamma_D_total(t): 
         return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
 
@@ -316,10 +252,6 @@ def make_W_mb_model(
             flux = F.SurfaceFlux(field=species, surface=inlet)
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
-
-    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    #my_model.exports.append(surface_temperature)
-    #quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
     my_model.settings = CustomSettings(
@@ -373,14 +305,9 @@ def make_B_mb_model(
 
     ############# Material Parameters #############
 
-    vertices = np.concatenate(  # 1D mesh with extra refinement
-        [
-            np.linspace(0, 30e-9, num=500),
-            np.linspace(30e-9, 1e-7, num=500),
-            np.linspace(1e-7, L, num=500),
-        ]
-    )
-    my_model.mesh = F.Mesh1D(vertices)
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
+
+    my_model.mesh = F.Mesh1D(vertices_graded)
 
     # B material parameters from Etienne Hodilles's unpublished TDS study for boron
     b_density = 1.34e29  # atoms/m3
@@ -567,32 +494,6 @@ def make_B_mb_model(
 
     ############# Flux Parameters #############
 
-    #my_model.sources = [
-    #    PulsedSource(
-    #        flux=deuterium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=b_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=b_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=deuterium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=b_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=b_subdomain,
-    #    ),
-    #]
     def Gamma_D_total(t): 
         return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
 
@@ -644,10 +545,6 @@ def make_B_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    #my_model.exports.append(surface_temperature)
-    #quantities["surface_temperature"] = surface_temperature
-
     ############# Settings #############
     my_model.settings = CustomSettings(
         atol=custom_atol,
@@ -691,43 +588,12 @@ def make_DFW_mb_model(
     """
 
     my_model = CustomProblem()
-    
-    
-    def total_D_flux(t: float) -> float:
-        t = float(t)
-        # If you also have additional sources/sinks, sum them here.
-        return float(deuterium_ion_flux(t)) + float(deuterium_atom_flux(t))
-
-    def total_T_flux(t: float) -> float:
-        t = float(t)
-        return float(tritium_ion_flux(t)) + float(tritium_atom_flux(t))
-
-    # Tritium fraction: T_frac(t) = total_T_flux(t) / (total_T_flux(t) + total_D_flux(t))
-    # NOTE: If total flux can be exactly zero at some times, this will raise ZeroDivisionError.
-    # If you want a robust behavior there, add a small guard (e.g., return 0.0 when denom == 0).
-    def T_frac(t: float) -> float:
-        t = float(t)
-        Tt = total_T_flux(t)
-        Dt = total_D_flux(t)
-        denom = Tt + Dt
-        if denom > 0:
-            return float(Tt / denom)
-        else:
-            return 0.0
-
 
     ############# Material Parameters #############
 
-    vertices = np.concatenate(  # 1D mesh with extra refinement
-        [
-            np.linspace(0, 30e-9, num=200),
-            np.linspace(30e-9, 3e-6, num=300),
-            np.linspace(3e-6, 30e-6, num=300),
-            np.linspace(30e-6, 1e-4, num=300),
-            np.linspace(1e-4, L, num=200),
-        ]
-    )
-    my_model.mesh = F.Mesh1D(vertices)
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
+
+    my_model.mesh = F.Mesh1D(vertices_graded)
 
     # TODO: pull DFW material parameters from HTM?
 
@@ -802,63 +668,29 @@ def make_DFW_mb_model(
 
     ############# Flux Parameters #############
 
-    #my_model.sources = [
-    #    PulsedSource(
-    #        flux=deuterium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=deuterium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #]
+    def total_D_flux(t: float) -> float:
+        t = float(t)
+        # If you also have additional sources/sinks, sum them here.
+        return float(deuterium_ion_flux(t)) + float(deuterium_atom_flux(t))
+
+    def total_T_flux(t: float) -> float:
+        t = float(t)
+        return float(tritium_ion_flux(t)) + float(tritium_atom_flux(t))
+
+    # Tritium fraction: T_frac(t) = total_T_flux(t) / (total_T_flux(t) + total_D_flux(t))
+    # NOTE: If total flux can be exactly zero at some times, this will raise ZeroDivisionError.
+    # If you want a robust behavior there, add a small guard (e.g., return 0.0 when denom == 0).
+    def T_frac(t: float) -> float:
+        t = float(t)
+        Tt = total_T_flux(t)
+        Dt = total_D_flux(t)
+        denom = Tt + Dt
+        if denom > 0:
+            return float(Tt / denom)
+        else:
+            return 0.0
 
     ############# Boundary Conditions #############
-    surface_reaction_dd = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_D],
-        gas_pressure=0,
-        k_r0=1.75e-24,
-        E_kr=-0.594,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_tt = F.SurfaceReactionBC(
-        reactant=[mobile_T, mobile_T],
-        gas_pressure=0,
-        k_r0=1.75e-24,
-        E_kr=-0.594,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
-
-    surface_reaction_dt = F.SurfaceReactionBC(
-        reactant=[mobile_D, mobile_T],
-        gas_pressure=0,
-        k_r0=1.75e-24,
-        E_kr=-0.594,
-        k_d0=0,
-        E_kd=0,
-        subdomain=inlet,
-    )
 
     k_r0=1.75e-24,
     E_kr=-0.594,
@@ -876,9 +708,6 @@ def make_DFW_mb_model(
     my_model.boundary_conditions = [
         bc_D,
         bc_T,
-    #    surface_reaction_dd,
-    #    surface_reaction_dt,
-    #    surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -900,13 +729,9 @@ def make_DFW_mb_model(
             my_model.exports.append(flux)
             quantities[species.name + "_surface_flux"] = flux
 
-    #surface_temperature = F.SurfaceTemperature(my_model.temperature, surface=inlet)
-    #my_model.exports.append(surface_temperature)
-    #quantities["surface_temperature"] = surface_temperature
-
     ############# Settings #############
     my_model.settings = F.Settings(
-        atol=1e5,
+        atol=1e10,
         rtol=1e-10,
         max_iterations=30,
         final_time=final_time,
