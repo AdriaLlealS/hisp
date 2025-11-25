@@ -5,8 +5,6 @@ from hisp.helpers import (
     Stepsize,
     periodic_pulse_function,
     XDMFExportEveryDt,
-    gaussian_implantation_ufl,
-    make_time_dependent_ufl_source,
 )
 from hisp.scenario import Scenario
 from hisp.plamsa_data_handling import PlasmaDataHandling
@@ -1210,3 +1208,32 @@ def make_T_surface_concentration_SS(T_fun, flux_fun, T_frac, D0, kr0, E_D, E_k, 
         c_sT_SS_val = np.sqrt(phi*(7+z-np.sqrt(1 + 14*z + z**2))/12.0/K_T)
         return float( phi * R_p / D_T + c_sT_SS_val)
     return c_ST_SS
+
+def gaussian_implantation_ufl(Rp, sigma, axis=0, thickness=None):
+    """
+    Returns callable value(x, t) -> UFL expression S(x,t) [m^-3 s^-1]
+    - Rp, sigma in meters
+    - J_t: callable (t -> UFL expr) giving m^-2 s^-1
+    - axis in {0,1,2} selects x[axis] as depth coordinate
+    - If thickness is not None (meters), renormalize over [0, thickness] to conserve J(t)
+    """
+    inv_sqrt_2pi = 1.0 / np.sqrt(2.0 * np.pi)
+    if thickness is None:
+        norm = inv_sqrt_2pi / sigma
+        def value(x):
+            xi = x[axis]
+            z  = (xi - Rp) / sigma
+            return norm * ufl.exp(-0.5 * z * z)
+        return value
+    else:
+        # Renormalize over [0, thickness]
+        from math import erf, sqrt
+        a = (0.0 - Rp) / (sigma * sqrt(2.0))
+        b = (thickness - Rp) / (sigma * sqrt(2.0))
+        C = max(0.5 * (erf(b) - erf(a)), 1e-12)        # in-domain Gaussian mass
+        norm = (inv_sqrt_2pi / sigma) / C
+        def value(x):
+            xi = x[axis]
+            z  = (xi - Rp) / sigma
+            return norm * ufl.exp(-0.5 * z * z)
+        return value
