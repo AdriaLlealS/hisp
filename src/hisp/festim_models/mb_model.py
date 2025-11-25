@@ -1205,10 +1205,6 @@ def make_T_surface_concentration_SS(T_fun, flux_fun, T_frac, D0, kr0, E_D, E_k, 
     return c_ST_SS
 
 
-
-import ufl
-from typing import Any, Callable
-
 def make_particle_flux_ufl_function(
     scenario,
     plasma_data_handling,
@@ -1217,7 +1213,7 @@ def make_particle_flux_ufl_function(
     tritium: bool,
 ) -> Callable[[Any], Any]:
     """
-    Returns a function that calculates the particle flux as a UFL expression based on time.
+    Returns a UFL expression for particle flux as a function of time.
     """
 
     def particle_flux_ufl(t: Any) -> Any:
@@ -1225,25 +1221,25 @@ def make_particle_flux_ufl_function(
 
         # Loop over all pulses in the scenario
         for pulse in scenario.pulses:
-            # Compute relative time within this pulse (symbolically)
-            tau = t - scenario.get_time_start_current_pulse(pulse.start_time)
+            # Compute symbolic time within this pulse (no modulo in UFL)
+            tau = t  # We assume t starts at 0 for the first pulse
 
-            # Build the ramp profile using UFL conditionals
-            # Ramp-up, steady-state, ramp-down, waiting
+            # Conditions for ramp-up, steady-state, ramp-down
             within_up = ufl.lt(tau, pulse.ramp_up)
             within_steady = ufl.And(ufl.ge(tau, pulse.ramp_up),
                                      ufl.lt(tau, pulse.ramp_up + pulse.steady_state))
             within_down = ufl.And(ufl.ge(tau, pulse.ramp_up + pulse.steady_state),
                                    ufl.lt(tau, pulse.ramp_up + pulse.steady_state + pulse.ramp_down))
 
-            # Base flux value (numeric from PlasmaDataHandling)
-            # NOTE: UFL cannot call Python logic dynamically, so we lift numeric value as Constant
+            # Base flux value from PlasmaDataHandling (numeric)
             plateau_val = plasma_data_handling.get_particle_flux(
                 pulse=pulse,
                 bin=bin,
-                t_rel=0.0,  # symbolic version ignores modulo
+                t_rel=0.0,  # UFL cannot compute modulo, so we ignore it
                 ion=ion,
             )
+
+            # Apply tritium fraction
             frac = pulse.tritium_fraction if tritium else (1 - pulse.tritium_fraction)
             plateau = ufl.Constant(plateau_val * frac)
 
@@ -1252,7 +1248,7 @@ def make_particle_flux_ufl_function(
             down_val = plateau - (plateau - 0.0) / pulse.ramp_down * (tau - (pulse.ramp_up + pulse.steady_state))
             down_val = ufl.conditional(ufl.ge(down_val, 0.0), down_val, 0.0)
 
-            # Piecewise shape
+            # Piecewise shape for this pulse
             shape = ufl.conditional(
                 within_up, up_val,
                 ufl.conditional(
@@ -1261,12 +1257,11 @@ def make_particle_flux_ufl_function(
                 )
             )
 
-            # Activate only during this pulse window
-            active = ufl.And(ufl.ge(t, pulse.start_time),
-                             ufl.lt(t, pulse.start_time + pulse.total_duration))
-            flux_expr += ufl.conditional(active, shape, 0.0)
+            # Add to flux expression (no start_time logic, pulses assumed sequential)
+            flux_expr += shape
 
         return flux_expr
 
     return particle_flux_ufl
+
 
