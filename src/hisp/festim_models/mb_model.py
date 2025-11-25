@@ -569,12 +569,8 @@ def make_DFW_mb_model(
     final_time: float,
     folder: str,
     L: float,
-    custom_atol: Union[
-        float, Callable
-    ] = 1e10,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
-    custom_rtol: Union[
-        float, Callable
-    ] = 1e-10,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    custom_atol: Union[float, Callable] = 1e10,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    custom_rtol: Union[float, Callable] = 1e-10,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the DFW MB scenario.
@@ -698,8 +694,8 @@ def make_DFW_mb_model(
 
     ############# Boundary Conditions #############
 
-    k_r0=1.75e-24,
-    E_kr=-0.594,
+    k_r0 = 1.75e-24
+    E_kr = -0.594
 
     # Build the two BC callables
     c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
