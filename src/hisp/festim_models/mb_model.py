@@ -1217,7 +1217,7 @@ def make_particle_flux_ufl_function(
     """
 
     def particle_flux_ufl(t: Any) -> Any:
-        flux_expr = 0.0
+        #flux_expr = 0.0
 
         # Loop over all pulses in the scenario
         for pulse in scenario.pulses:
@@ -1258,9 +1258,9 @@ def make_particle_flux_ufl_function(
             )
 
             # Add to flux expression (no start_time logic, pulses assumed sequential)
-            flux_expr += shape
+            #flux_expr += shape
 
-        return flux_expr
+        return shape
 
     return particle_flux_ufl
 
