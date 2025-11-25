@@ -569,6 +569,12 @@ def make_DFW_mb_model(
     final_time: float,
     folder: str,
     L: float,
+    custom_atol: Union[
+        float, Callable
+    ] = 1e10,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    custom_rtol: Union[
+        float, Callable
+    ] = 1e-10,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the DFW MB scenario.
@@ -730,10 +736,10 @@ def make_DFW_mb_model(
             quantities[species.name + "_surface_flux"] = flux
 
     ############# Settings #############
-    my_model.settings = F.Settings(
-        atol=1e10,
-        rtol=1e-10,
-        max_iterations=30,
+    my_model.settings = CustomSettings(
+        atol=custom_atol,
+        rtol=custom_rtol,
+        max_iterations=100,
         final_time=final_time,
     )
 
