@@ -162,3 +162,32 @@ class XDMFExportEveryDt(XDMFExport):
         if (self._last_t is None) or ((t - self._last_t) >= (min_dt - self._atol)):
             super().write(t)
             self._last_t = t
+
+    def gaussian_implantation_ufl(Rp, sigma, J_t, axis=0, thickness=None):
+        """
+        Returns callable value(x, t) -> UFL expression S(x,t) [m^-3 s^-1]
+        - Rp, sigma in meters
+        - J_t: callable (t -> UFL expr) giving m^-2 s^-1
+        - axis in {0,1,2} selects x[axis] as depth coordinate
+        - If thickness is not None (meters), renormalize over [0, thickness] to conserve J(t)
+        """
+        inv_sqrt_2pi = 1.0 / np.sqrt(2.0 * np.pi)
+        if thickness is None:
+            norm = inv_sqrt_2pi / sigma
+            def value(x, t):
+                xi = x[axis]
+                z  = (xi - Rp) / sigma
+                return norm * ufl.exp(-0.5 * z * z) * J_t(t)
+            return value
+        else:
+            # Renormalize over [0, thickness]
+            from math import erf, sqrt
+            a = (0.0 - Rp) / (sigma * sqrt(2.0))
+            b = (thickness - Rp) / (sigma * sqrt(2.0))
+            C = max(0.5 * (erf(b) - erf(a)), 1e-12)        # in-domain Gaussian mass
+            norm = (inv_sqrt_2pi / sigma) / C
+            def value(x, t):
+                xi = x[axis]
+                z  = (xi - Rp) / sigma
+                return norm * ufl.exp(-0.5 * z * z) * J_t(t)
+            return value

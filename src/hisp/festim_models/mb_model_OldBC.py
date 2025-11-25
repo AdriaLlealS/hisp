@@ -4,6 +4,8 @@ from hisp.helpers import (
     gaussian_distribution,
     Stepsize,
     periodic_pulse_function,
+    XDMFExportEveryDt,
+    gaussian_implantation_ufl,
 )
 from hisp.scenario import Scenario
 from hisp.plamsa_data_handling import PlasmaDataHandling
@@ -214,31 +216,26 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
+
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+    
+    source_D = gaussian_implantation_ufl(implantation_range, width, Gamma_D_total, axis=0, thickness = L)
+    source_T = gaussian_implantation_ufl(implantation_range, width, Gamma_T_total, axis=0, thickness = L)
+
     my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
+        F.ParticleSource(
+            value = source_D,
+            volume = w_subdomain,
+            species = mobile_D
         ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
-        ),
+        F.ParticleSource(
+            value = source_T,
+            volume = w_subdomain,
+            species = mobile_T
+        )
     ]
 
     ############ Boundary Conditions #############
@@ -568,38 +565,27 @@ def make_B_mb_model(
 
     ############# Flux Parameters #############
 
-    my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
-        ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
-        ),
-    ]
+    def Gamma_D_total(t): 
+        return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
 
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-#
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+    def Gamma_T_total(t): 
+        return float(tritium_atom_flux(t)+tritium_ion_flux(t))
+    
+    source_D = gaussian_implantation_ufl(implantation_range, width, Gamma_D_total, axis=0, thickness = L)
+    source_T = gaussian_implantation_ufl(implantation_range, width, Gamma_T_total, axis=0, thickness = L)
+
+    my_model.sources = [
+        F.ParticleSource(
+            value = source_D,
+            volume = w_subdomain,
+            species = mobile_D
+        ),
+        F.ParticleSource(
+            value = source_T,
+            volume = w_subdomain,
+            species = mobile_T
+        )
+    ]
 #
     ## Build the two BC callables
     #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
