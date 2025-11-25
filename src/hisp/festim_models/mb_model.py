@@ -217,29 +217,28 @@ def make_W_mb_model(
     ############# Flux Parameters #############
 
     my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
+        F.ParticleSource(
+            value = lambda x,t: deuterium_ion_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = w_subdomain,
+            species = mobile_D,
         ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
+
+        F.ParticleSource(
+            value = lambda x,t: deuterium_atom_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = w_subdomain,
+            species = mobile_D,
         ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=w_subdomain,
+
+        F.ParticleSource(
+            value = lambda x,t: tritium_ion_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = w_subdomain,
+            species = mobile_T,
         ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=w_subdomain,
+
+        F.ParticleSource(
+            value = lambda x,t: tritium_atom_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = w_subdomain,
+            species = mobile_T,
         ),
     ]
 
@@ -571,29 +570,28 @@ def make_B_mb_model(
     ############# Flux Parameters #############
 
     my_model.sources = [
-        PulsedSource(
-            flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
+        F.ParticleSource(
+            value = lambda x,t: deuterium_ion_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = b_subdomain,
+            species = mobile_D,
         ),
-        PulsedSource(
-            flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
+
+        F.ParticleSource(
+            value = lambda x,t: deuterium_atom_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = b_subdomain,
+            species = mobile_D,
         ),
-        PulsedSource(
-            flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_D,
-            volume=b_subdomain,
+
+        F.ParticleSource(
+            value = lambda x,t: tritium_ion_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = b_subdomain,
+            species = mobile_T,
         ),
-        PulsedSource(
-            flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-            species=mobile_T,
-            volume=b_subdomain,
+
+        F.ParticleSource(
+            value = lambda x,t: tritium_atom_flux(t) * gaussian_implantation_ufl(implantation_range,width,1,0,L)(x),
+            volume = b_subdomain,
+            species = mobile_T,
         ),
     ]
 #
@@ -1204,3 +1202,61 @@ def make_T_surface_concentration_SS(T_fun, flux_fun, T_frac, D0, kr0, E_D, E_k, 
         c_sT_SS_val = np.sqrt(phi*(7+z-np.sqrt(1 + 14*z + z**2))/12.0/K_T)
         return float( phi * R_p / D_T + c_sT_SS_val)
     return c_ST_SS
+
+
+def make_particle_flux_ufl_function(
+    scenario: Scenario,
+    plasma_data_handling: PlasmaDataHandling,
+    bin: hisp.bin.SubBin | hisp.bin.DivBin,
+    ion: bool,
+    tritium: bool,
+) -> Callable[[ufl.Expr], ufl.Expr]:
+    """
+    Returns a function that calculates the particle flux as a UFL expression based on time.
+
+    Args:
+        scenario: the Scenario object containing the pulses
+        plasma_data_handling: the object containing the plasma data
+        bin: the bin/subbin to get the temperature function for
+        ion: whether to get the ion flux
+        tritium: whether to get the tritium flux
+
+    Returns:
+        a callable of t (UFL expression) returning the incident particle flux in m^-2 s^-1
+    """
+
+    def particle_flux_ufl(t: ufl.Expr) -> ufl.Expr:
+        # We cannot use Python's modulo or pulse lookup directly in UFL,
+        # so we need to precompute a piecewise representation of the pulses.
+
+        # Build a UFL conditional chain for all pulses
+        flux_expr = 0.0
+        for pulse in scenario.pulses:
+            start = pulse.start_time
+            end = pulse.start_time + pulse.total_duration
+
+            # Relative time within pulse (wrap with modulo if needed)
+            # NOTE: UFL doesn't support modulo, so if periodicity is needed,
+            # you must approximate or ignore it.
+            t_rel = t - start
+
+            # Get flux for this pulse as a constant or UFL expression
+            incident_flux = plasma_data_handling.get_particle_flux(
+                pulse=pulse,
+                bin=bin,
+                t_rel=t_rel,
+                ion=ion,
+            )
+
+            # Apply tritium fraction
+            if tritium:
+                incident_flux *= pulse.tritium_fraction
+            else:
+                incident_flux *= (1 - pulse.tritium_fraction)
+
+            # Add conditional for active pulse
+            flux_expr += ufl.conditional(ufl.And(ufl.ge(t, start), ufl.lt(t, end)), incident_flux, 0.0)
+
+        return flux_expr
+
+    return particle_flux_ufl

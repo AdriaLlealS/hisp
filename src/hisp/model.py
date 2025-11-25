@@ -20,6 +20,7 @@ from hisp.festim_models import (
     make_DFW_mb_model,
     make_temperature_function,
     make_particle_flux_function,
+    make_particle_flux_ufl_function,
 )
 
 
@@ -86,28 +87,28 @@ class Model:
             bin=bin,
             coolant_temp=self.coolant_temp,
         )
-        d_ion_incident_flux = make_particle_flux_function(
+        d_ion_incident_flux = make_particle_flux_ufl_function(
             scenario=self.scenario,
             plasma_data_handling=self.plasma_data_handling,
             bin=bin,
             ion=True,
             tritium=False,
         )
-        tritium_ion_flux = make_particle_flux_function(
+        tritium_ion_flux = make_particle_flux_ufl_function(
             scenario=self.scenario,
             plasma_data_handling=self.plasma_data_handling,
             bin=bin,
             ion=True,
             tritium=True,
         )
-        deuterium_atom_flux = make_particle_flux_function(
+        deuterium_atom_flux = make_particle_flux_ufl_function(
             scenario=self.scenario,
             plasma_data_handling=self.plasma_data_handling,
             bin=bin,
             ion=False,
             tritium=False,
         )
-        tritium_atom_flux = make_particle_flux_function(
+        tritium_atom_flux = make_particle_flux_ufl_function(
             scenario=self.scenario,
             plasma_data_handling=self.plasma_data_handling,
             bin=bin,
