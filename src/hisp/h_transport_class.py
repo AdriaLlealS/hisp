@@ -70,9 +70,9 @@ class CustomProblem(F.HydrogenTransportProblem):
 
         for bc in self.boundary_conditions:
             if isinstance(bc, (F.FixedConcentrationBC, F.ParticleFluxBC, F.SurfaceReactionBC)):
-                if bc.temperature_dependent:
+                if hasattr(bc, 'temperature_dependent') and bc.temperature_dependent:
                     bc.update(t=t)
 
         for source in self.sources:
-            if source.temperature_dependent:
+            if hasattr(source, 'temperature_dependent') and source.temperature_dependent:
                 source.update(t=t)
