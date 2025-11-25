@@ -232,3 +232,63 @@ def periodic_pulse_ufl(t, pulse, value, value_off=343.0):
     )
 
     return shape
+
+def make_ufl_flux_function(scalar_flux_function):
+    """
+    Convert a scalar flux function to a UFL expression function.
+    
+    Args:
+        scalar_flux_function: A function that takes time (float) and returns flux value (float)
+        
+    Returns:
+        A function that takes time (UFL expression) and returns UFL expression
+    """
+    def ufl_flux(t):
+        # For time-dependent behavior, we need to create conditional expressions
+        # This is a simplified version - for complex time dependencies,
+        # you might need to sample at specific times and interpolate
+        return ufl.Constant(1.0)  # Placeholder - this needs proper implementation
+    
+    return ufl_flux
+
+def make_time_dependent_ufl_source(flux_function, distribution_function):
+    """
+    Create a proper time-dependent UFL source that handles the float/UFL domain issue.
+    
+    Args:
+        flux_function: Function that takes (t: float) -> float
+        distribution_function: Function that takes (x: UFL coordinate) -> UFL expression
+                             OR a function returned by gaussian_implantation_ufl
+        
+    Returns:
+        Function that takes (x, t) and returns UFL expression
+    """
+    def source_value(x, t):
+        # Safely extract the time value and evaluate flux
+        try:
+            # Handle different types of time input
+            if hasattr(t, 'value'):
+                time_val = t.value
+            else:
+                time_val = t
+            
+            flux_val = flux_function(time_val)
+        except:
+            # Fallback
+            flux_val = flux_function(t)
+            
+        # Create UFL constant from the flux value
+        flux_ufl = ufl.Constant(flux_val)
+        
+        # Get the distribution UFL expression
+        # Check if distribution_function is already a callable returned by gaussian_implantation_ufl
+        if callable(distribution_function):
+            dist_ufl = distribution_function(x)
+        else:
+            # Direct UFL expression
+            dist_ufl = distribution_function
+        
+        # Return the product
+        return flux_ufl * dist_ufl
+    
+    return source_value

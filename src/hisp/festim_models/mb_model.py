@@ -6,6 +6,7 @@ from hisp.helpers import (
     periodic_pulse_function,
     XDMFExportEveryDt,
     gaussian_implantation_ufl,
+    make_time_dependent_ufl_source,
 )
 from hisp.scenario import Scenario
 from hisp.plamsa_data_handling import PlasmaDataHandling
@@ -217,27 +218,30 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
+    # Create distribution function from gaussian_implantation_ufl
+    gaussian_dist = gaussian_implantation_ufl(implantation_range, width, 0, L)
+
     my_model.sources = [
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(float(deuterium_ion_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: deuterium_ion_flux(t) * gaussian_dist(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(float(deuterium_atom_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: deuterium_atom_flux(t) * gaussian_dist(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(float(tritium_ion_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x), 
+            value = lambda x,t: tritium_ion_flux(t) * gaussian_dist(x), 
             volume = w_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: ufl.Constant(float(tritium_atom_flux(t)))*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: tritium_atom_flux(t) * gaussian_dist(x),
             volume = w_subdomain,
             species = mobile_T,
         ),
@@ -570,27 +574,30 @@ def make_B_mb_model(
 
     ############# Flux Parameters #############
 
+    # Create distribution function from gaussian_implantation_ufl
+    gaussian_dist = gaussian_implantation_ufl(implantation_range, width, 0, L)
+
     my_model.sources = [
         F.ParticleSource(
-            value = lambda x,t: deuterium_ion_flux(t)*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: deuterium_ion_flux(t) * gaussian_dist(x),
             volume = b_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: deuterium_atom_flux(t)*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: deuterium_atom_flux(t) * gaussian_dist(x),
             volume = b_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: tritium_ion_flux(t)*gaussian_implantation_ufl(implantation_range,width,0,L)(x), 
+            value = lambda x,t: tritium_ion_flux(t) * gaussian_dist(x), 
             volume = b_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: tritium_atom_flux(t)*gaussian_implantation_ufl(implantation_range,width,0,L)(x),
+            value = lambda x,t: tritium_atom_flux(t) * gaussian_dist(x),
             volume = b_subdomain,
             species = mobile_T,
         ),
