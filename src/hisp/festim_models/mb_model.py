@@ -16,7 +16,7 @@ import numpy as np
 import festim as F
 import h_transport_materials as htm
 
-from typing import Callable, Tuple, Dict, Union
+from typing import Callable, Tuple, Dict, Union, Any
 from numpy.typing import NDArray
 
 import math
@@ -1211,7 +1211,7 @@ def make_particle_flux_ufl_function(
     bin: hisp.bin.SubBin | hisp.bin.DivBin,
     ion: bool,
     tritium: bool,
-) -> Callable[[ufl.Expr], ufl.Expr]:
+) -> Callable[[Any], Any]:
     """
     Returns a function that calculates the particle flux as a UFL expression based on time.
 
@@ -1226,7 +1226,7 @@ def make_particle_flux_ufl_function(
         a callable of t (UFL expression) returning the incident particle flux in m^-2 s^-1
     """
 
-    def particle_flux_ufl(t: ufl.Expr) -> ufl.Expr:
+    def particle_flux_ufl(t: Any) -> Any:
         # We cannot use Python's modulo or pulse lookup directly in UFL,
         # so we need to precompute a piecewise representation of the pulses.
 
