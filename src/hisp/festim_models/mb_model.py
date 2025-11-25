@@ -216,30 +216,58 @@ def make_W_mb_model(
 
     ############# Flux Parameters #############
 
+    # Create UFL-compatible flux functions that work with your existing flux functions
+    # We'll need to sample the flux at key time points and create UFL conditionals
+    def create_ufl_flux_function(original_flux_func, final_time, num_samples=100):
+        """Convert a float-based flux function to UFL-compatible conditional"""
+        # Sample the flux function at regular intervals
+        times = np.linspace(0, final_time, num_samples)
+        flux_values = [original_flux_func(float(t)) for t in times]
+        
+        # Create a UFL conditional chain
+        def ufl_flux(t):
+            # Start with the last value as default
+            result = ufl.as_ufl(flux_values[-1])
+            
+            # Work backwards through the time points
+            for i in range(len(times) - 2, -1, -1):
+                condition = ufl.lt(t, times[i + 1])
+                result = ufl.conditional(condition, flux_values[i], result)
+            
+            return result
+        
+        return ufl_flux
+
+    # Convert your existing flux functions to UFL-compatible versions
+    ufl_deuterium_ion_flux = create_ufl_flux_function(deuterium_ion_flux, final_time)
+    ufl_deuterium_atom_flux = create_ufl_flux_function(deuterium_atom_flux, final_time)
+    ufl_tritium_ion_flux = create_ufl_flux_function(tritium_ion_flux, final_time)
+    ufl_tritium_atom_flux = create_ufl_flux_function(tritium_atom_flux, final_time)
+
     # Create distribution function from gaussian_implantation_ufl
     gaussian_dist = gaussian_implantation_ufl(implantation_range, width, 0, L)
 
     my_model.sources = [
         F.ParticleSource(
-            value = lambda x,t: deuterium_ion_flux(t) * gaussian_dist(x),
+            value = lambda x,t: ufl_deuterium_ion_flux(t) * gaussian_dist(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: deuterium_atom_flux(t) * gaussian_dist(x),
+            value = lambda x,t: ufl_deuterium_atom_flux(t) * gaussian_dist(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: tritium_ion_flux(t) * gaussian_dist(x), 
+            value = lambda x,t: ufl_tritium_ion_flux(t) * gaussian_dist(x), 
             volume = w_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = lambda x,t: tritium_atom_flux(t) * gaussian_dist(x),
+            value = lambda x,t: ufl_tritium_atom_flux(t) * gaussian_dist(x),
             volume = w_subdomain,
             species = mobile_T,
         ),
