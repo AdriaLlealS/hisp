@@ -218,7 +218,7 @@ def make_W_mb_model(
 
     # Create UFL-compatible flux functions that work with your existing flux functions
     # We'll need to sample the flux at key time points and create UFL conditionals
-    def create_ufl_flux_function(original_flux_func, final_time, num_samples=100):
+    def create_ufl_flux_function(original_flux_func, final_time, num_samples=100000):
         """Convert a float-based flux function to UFL-compatible conditional"""
         # Sample the flux function at regular intervals
         times = np.linspace(0, final_time, num_samples)
@@ -362,7 +362,7 @@ def make_W_mb_model(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-10)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
@@ -685,7 +685,7 @@ def make_B_mb_model(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-4)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-8)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
