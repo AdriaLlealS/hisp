@@ -362,7 +362,7 @@ def make_W_mb_model(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-10)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-6)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
