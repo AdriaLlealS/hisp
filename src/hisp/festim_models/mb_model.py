@@ -219,25 +219,25 @@ def make_W_mb_model(
 
     my_model.sources = [
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,deuterium_ion_flux ,0,L),
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,deuterium_ion_flux(t) ,0,L)(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,deuterium_atom_flux ,0,L),
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,deuterium_atom_flux(t) ,0,L)(x),
             volume = w_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,tritium_ion_flux ,0,L), 
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,tritium_ion_flux(t) ,0,L)(x), 
             volume = w_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,tritium_atom_flux ,0,L),
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,tritium_atom_flux(t) ,0,L)(x),
             volume = w_subdomain,
             species = mobile_T,
         ),
@@ -572,25 +572,25 @@ def make_B_mb_model(
 
     my_model.sources = [
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,deuterium_ion_flux ,0,L),
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,deuterium_ion_flux(t) ,0,L)(x),
             volume = b_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,deuterium_atom_flux ,0,L),
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,deuterium_atom_flux(t) ,0,L)(x),
             volume = b_subdomain,
             species = mobile_D,
         ),
 
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,tritium_ion_flux ,0,L),
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,tritium_ion_flux(t) ,0,L)(x), 
             volume = b_subdomain,
             species = mobile_T,
         ),
 
         F.ParticleSource(
-            value = gaussian_implantation_ufl(implantation_range,width,tritium_atom_flux ,0,L),
+            value = lambda x,t: gaussian_implantation_ufl(implantation_range,width,tritium_atom_flux(t) ,0,L)(x),
             volume = b_subdomain,
             species = mobile_T,
         ),
