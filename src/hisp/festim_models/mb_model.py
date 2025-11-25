@@ -218,7 +218,7 @@ def make_W_mb_model(
 
     # Create UFL-compatible flux functions that work with your existing flux functions
     # We'll need to sample the flux at key time points and create UFL conditionals
-    def create_ufl_flux_function(original_flux_func, final_time, num_samples=100000):
+    def create_ufl_flux_function(original_flux_func, final_time, num_samples=1000):
         """Convert a float-based flux function to UFL-compatible conditional"""
         # Sample the flux function at regular intervals
         times = np.linspace(0, final_time, num_samples)
