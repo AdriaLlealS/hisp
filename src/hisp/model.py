@@ -136,7 +136,7 @@ class Model:
 
         # ---------------- r_tol policy ----------------
         # Both B and W (and SS for completeness) use the same numeric value: 10e-10
-        rtol_value = float(1e-8)  # 1e-9
+        rtol_value = float(1e-11)  # 1e-9
 
         if bin.material == "W":
             return make_W_mb_model(
