@@ -16,11 +16,8 @@ from hisp.bin import Reactor, SubBin, DivBin
 from hisp.helpers import periodic_step_function
 from hisp.festim_models import (
     make_W_mb_model,
-    make_W_mb_model_oldBC,
     make_B_mb_model,
-    make_B_mb_model_oldBC,
     make_DFW_mb_model,
-    make_DFW_mb_model_oldBC,
     make_temperature_function,
     make_particle_flux_function,
 )
