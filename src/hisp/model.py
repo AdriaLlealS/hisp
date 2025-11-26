@@ -60,9 +60,9 @@ class Model:
         my_model.settings.stepsize.milestones = milestones
 
         # Adaptivity knobs (unchanged)
-        my_model.settings.stepsize.growth_factor = 1.2
-        my_model.settings.stepsize.cutback_factor = 0.9
-        my_model.settings.stepsize.target_nb_iterations = 4
+        my_model.settings.stepsize.growth_factor = 1.1
+        my_model.settings.stepsize.cutback_factor = 0.3
+        my_model.settings.stepsize.target_nb_iterations = 5
 
         # ---- Constant stepsize cap: 100000 s everywhere ----
         my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
@@ -134,8 +134,8 @@ class Model:
             parent_bin_index = getattr(bin, "index", -1)
 
         # ---------------- r_tol policy ----------------
-        # Both B and W (and SS for completeness) use the same numeric value: 10e-10
-        rtol_value = float(10e-10)  # 1e-9
+        # Both B and W (and SS for completeness) use the same numeric value: 1e-10
+        rtol_value = float(1e-10)  # 1e-10
 
         if bin.material == "W":
             return make_W_mb_model(
@@ -163,7 +163,7 @@ class Model:
     # ----------------------- helpers -----------------------
     def constant_max_stepsize(self, t: float) -> float:
         """Constant stepsize cap (s) = 100000.0 for every t and every case."""
-        return 100000.0
+        return 1000.0
 
     def make_milestones(self, initial_stepsize_value: float) -> List[float]:
         """

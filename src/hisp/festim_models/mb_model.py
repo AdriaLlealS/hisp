@@ -280,7 +280,7 @@ def make_B_mb_model(
     L: float,
     custom_atol: Union[
         float, Callable
-    ] = 1e8,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    ] = 1e10,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     custom_rtol: Union[
         float, Callable
     ] = 1e-10,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
