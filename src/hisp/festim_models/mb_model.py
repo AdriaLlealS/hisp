@@ -779,7 +779,7 @@ def make_W_mb_model_oldBC(
         if xs[-1] < L: xs.append(L)
         return np.array(xs)
     
-    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.015)
     my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
@@ -1014,9 +1014,9 @@ def make_W_mb_model_oldBC(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e12,
+        atol=1e10,
         rtol=custom_rtol,
-        max_iterations=100,  # the first timestep needs about 66 iterations....
+        max_iterations=500,  # the first timestep needs about 66 iterations....
         final_time=final_time,
     )
 
