@@ -927,7 +927,7 @@ def make_W_mb_model_oldBC(
 
     ############# Flux Parameters #############
     
-    distribution = gaussian_implantation_ufl(implantation_range, width, 1, axis=0, thickness = L)
+    distribution = gaussian_implantation_ufl(implantation_range, width, thickness = L)
     info_array = build_pulse_info_array
     occurrences = compute_flux_values(info_array)
     deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
@@ -1259,7 +1259,7 @@ def make_B_mb_model_oldBC(
 
     ############# Flux Parameters #############
 
-    distribution = gaussian_implantation_ufl(implantation_range, width, 1, axis=0, thickness = L)
+    distribution = gaussian_implantation_ufl(implantation_range, width, thickness = L)
     info_array = build_pulse_info_array
     occurrences = compute_flux_values(info_array)
     deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
@@ -1454,7 +1454,7 @@ def make_DFW_mb_model_oldBC(
 
     ############# Flux Parameters #############
 
-    distribution = gaussian_implantation_ufl(implantation_range, width, 1, axis=0, thickness = L)
+    distribution = gaussian_implantation_ufl(implantation_range, width, thickness = L)
     info_array = build_pulse_info_array
     occurrences = compute_flux_values(info_array)
     deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
@@ -1462,25 +1462,25 @@ def make_DFW_mb_model_oldBC(
     my_model.sources = [
         PulsedSource(
             flux=deuterium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            value = lambda x,t: deuterium_ion_flux(t) * distribution(x),
             species=mobile_D,
             volume=ss_subdomain,
         ),
         PulsedSource(
             flux=tritium_ion_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            value = lambda x,t: tritium_ion_flux(t) * distribution(x),
             species=mobile_T,
             volume=ss_subdomain,
         ),
         PulsedSource(
             flux=deuterium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            value=lambda x,t: deuterium_atom_flux(t) * distribution(x),
             species=mobile_D,
             volume=ss_subdomain,
         ),
         PulsedSource(
             flux=tritium_atom_flux,
-            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            value=lambda x,t: tritium_atom_flux(t) * distribution(x),
             species=mobile_T,
             volume=ss_subdomain,
         ),
