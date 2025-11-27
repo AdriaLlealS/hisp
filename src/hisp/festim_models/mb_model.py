@@ -780,14 +780,6 @@ def make_W_mb_model_oldBC(
         return np.array(xs)
     
     vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
-
-    vertices = np.concatenate(  # 1D mesh with extra refinement
-        [
-            np.linspace(0, 1e-5, num=100),
-            np.linspace(1e-5, 1e-4, num=300),
-            np.linspace(1e-4, L, num=300),
-        ]
-    )
     my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
@@ -1028,7 +1020,7 @@ def make_W_mb_model_oldBC(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-10)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-12)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
@@ -1065,14 +1057,8 @@ def make_B_mb_model_oldBC(
 
     ############# Material Parameters #############
 
-    vertices = np.concatenate(  # 1D mesh with extra refinement
-        [
-            np.linspace(0, 30e-9, num=500),
-            np.linspace(30e-9, 1e-7, num=500),
-            np.linspace(1e-7, L, num=500),
-        ]
-    )
-    my_model.mesh = F.Mesh1D(vertices)
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.008)
+    my_model.mesh = F.Mesh1D(vertices_graded)
 
     # B material parameters from Etienne Hodilles's unpublished TDS study for boron
     b_density = 1.34e29  # atoms/m3
