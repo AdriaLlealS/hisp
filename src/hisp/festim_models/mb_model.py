@@ -1606,7 +1606,7 @@ def calculate_temperature_W(
     heat_flux: float,
     coolant_temp: float,
     thickness: float,
-    copper_thickness: float,
+    copper_thickness: float | None,
 ) -> float | NDArray:
     """Calculates the temperature in the W layer based on coolant temperature and heat flux
 
