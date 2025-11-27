@@ -776,7 +776,7 @@ def make_W_mb_model_oldBC(
         if xs[-1] < L: xs.append(L)
         return np.array(xs)
     
-    vertices_graded = graded_vertices(L=L, h0=L/12e11, r=1.01)
+    vertices_graded = graded_vertices(L=L, h0=1e-10, r=1.01)
     my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
@@ -1017,7 +1017,7 @@ def make_W_mb_model_oldBC(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-20)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-8)
     #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     #my_model.settings.preconditioner  = "lu"       # LU factorization
     #my_model._element_for_traps = "CG"
