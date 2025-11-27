@@ -226,9 +226,6 @@ def make_W_mb_model(
     my_model.boundary_conditions = [
         bc_D,
         bc_T
-        #surface_reaction_dd,
-        #surface_reaction_dt,
-        #surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -262,7 +259,7 @@ def make_W_mb_model(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-5)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
@@ -306,7 +303,7 @@ def make_B_mb_model(
 
     ############# Material Parameters #############
 
-    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.008)
 
     my_model.mesh = F.Mesh1D(vertices_graded)
 
@@ -554,7 +551,7 @@ def make_B_mb_model(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-6)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-4)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
