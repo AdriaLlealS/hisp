@@ -5,6 +5,7 @@ from hisp.helpers import (
     gaussian_distribution,
     Stepsize,
     periodic_pulse_function,
+    gaussian_implantation_ufl,
 )
 from hisp.scenario import Scenario
 from hisp.plamsa_data_handling import PlasmaDataHandling
@@ -747,10 +748,6 @@ def make_DFW_mb_model(
 
 def make_W_mb_model_oldBC(
     temperature: Callable | float | int,
-    deuterium_ion_flux: Callable,
-    tritium_ion_flux: Callable,
-    deuterium_atom_flux: Callable,
-    tritium_atom_flux: Callable,
     final_time: float,
     folder: str,
     L: float,
@@ -763,10 +760,6 @@ def make_W_mb_model_oldBC(
 
     Args:
         temperature: the temperature in K.
-        deuterium_ion_flux: the deuterium ion flux in m^-2 s^-1.
-        tritium_ion_flux: the tritium ion flux in m^-2 s^-1.
-        deuterium_atom_flux: the deuterium atom flux in m^-2 s^-1.
-        tritium_atom_flux: the tritium atom flux in m^-2 s^-1.
         final_time: the final time in s.
         folder: the folder to save the results.
         L: the length of the domain in m.
@@ -935,9 +928,12 @@ def make_W_mb_model_oldBC(
     ############# Flux Parameters #############
     
     distribution = gaussian_implantation_ufl(implantation_range, width, 1, axis=0, thickness = L)
+    info_array = build_pulse_info_array
+    occurrences = compute_flux_values(info_array)
+    deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
 
     my_model.sources = [
-        F.ParticleSource(
+    F.ParticleSource(
             value = lambda x,t: deuterium_ion_flux(t) * distribution(x),
             volume = w_subdomain,
             species = mobile_D
@@ -990,21 +986,6 @@ def make_W_mb_model_oldBC(
         subdomain=inlet,
     )
 
-    #def Gamma_D_total(t): 
-    #    return float(deuterium_ion_flux(t)+deuterium_atom_flux(t))
-#
-    #def Gamma_T_total(t): 
-    #    return float(tritium_atom_flux(t)+tritium_ion_flux(t))
-#
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
-
-
 
     my_model.boundary_conditions = [
         surface_reaction_dd,
@@ -1048,7 +1029,7 @@ def make_W_mb_model_oldBC(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-10)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
@@ -1058,10 +1039,6 @@ def make_W_mb_model_oldBC(
 
 def make_B_mb_model_oldBC(
     temperature: Callable | float | int,
-    deuterium_ion_flux: Callable,
-    tritium_ion_flux: Callable,
-    deuterium_atom_flux: Callable,
-    tritium_atom_flux: Callable,
     final_time: float,
     folder: str,
     L: float,
@@ -1077,10 +1054,6 @@ def make_B_mb_model_oldBC(
 
     Args:
         temperature: the temperature in K.
-        deuterium_ion_flux: the deuterium ion flux in m^-2 s^-1.
-        tritium_ion_flux: the tritium ion flux in m^-2 s^-1.
-        deuterium_atom_flux: the deuterium atom flux in m^-2 s^-1.
-        tritium_atom_flux: the tritium atom flux in m^-2 s^-1.
         final_time: the final time in s.
         folder: the folder to save the results.
         L: the length of the domain in m.
@@ -1287,6 +1260,9 @@ def make_B_mb_model_oldBC(
     ############# Flux Parameters #############
 
     distribution = gaussian_implantation_ufl(implantation_range, width, 1, axis=0, thickness = L)
+    info_array = build_pulse_info_array
+    occurrences = compute_flux_values(info_array)
+    deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
 
     my_model.sources = [
     F.ParticleSource(
@@ -1310,14 +1286,6 @@ def make_B_mb_model_oldBC(
             species = mobile_T
         ),
     ]
-#
-    ## Build the two BC callables
-    #c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, implantation_range, surface_x=0.0)
-    #c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, implantation_range, surface_x=0.0)
-#
-    ## Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    #bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    #bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
 
     ############# Boundary Conditions #############
     my_model.boundary_conditions = [
@@ -1367,7 +1335,7 @@ def make_B_mb_model_oldBC(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-4)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-12)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
@@ -1376,10 +1344,6 @@ def make_B_mb_model_oldBC(
 
 def make_DFW_mb_model_oldBC(
     temperature: Callable | float | int,
-    deuterium_ion_flux: Callable,
-    tritium_ion_flux: Callable,
-    deuterium_atom_flux: Callable,
-    tritium_atom_flux: Callable,
     final_time: float,
     folder: str,
     L: float,
@@ -1402,29 +1366,6 @@ def make_DFW_mb_model_oldBC(
     """
 
     my_model = CustomProblem()
-    
-    
-    def total_D_flux(t: float) -> float:
-        t = float(t)
-        # If you also have additional sources/sinks, sum them here.
-        return float(deuterium_ion_flux(t)) + float(deuterium_atom_flux(t))
-
-    def total_T_flux(t: float) -> float:
-        t = float(t)
-        return float(tritium_ion_flux(t)) + float(tritium_atom_flux(t))
-
-    # Tritium fraction: T_frac(t) = total_T_flux(t) / (total_T_flux(t) + total_D_flux(t))
-    # NOTE: If total flux can be exactly zero at some times, this will raise ZeroDivisionError.
-    # If you want a robust behavior there, add a small guard (e.g., return 0.0 when denom == 0).
-    def T_frac(t: float) -> float:
-        t = float(t)
-        Tt = total_T_flux(t)
-        Dt = total_D_flux(t)
-        denom = Tt + Dt
-        if denom > 0:
-            return float(Tt / denom)
-        else:
-            return 0.0
 
 
     ############# Material Parameters #############
@@ -1513,32 +1454,37 @@ def make_DFW_mb_model_oldBC(
 
     ############# Flux Parameters #############
 
-    #my_model.sources = [
-    #    PulsedSource(
-    #        flux=deuterium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_ion_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=deuterium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_D,
-    #        volume=ss_subdomain,
-    #    ),
-    #    PulsedSource(
-    #        flux=tritium_atom_flux,
-    #        distribution=lambda x: gaussian_distribution(x, implantation_range, width),
-    #        species=mobile_T,
-    #        volume=ss_subdomain,
-    #    ),
-    #]
+    distribution = gaussian_implantation_ufl(implantation_range, width, 1, axis=0, thickness = L)
+    info_array = build_pulse_info_array
+    occurrences = compute_flux_values(info_array)
+    deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
+
+    my_model.sources = [
+        PulsedSource(
+            flux=deuterium_ion_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_D,
+            volume=ss_subdomain,
+        ),
+        PulsedSource(
+            flux=tritium_ion_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_T,
+            volume=ss_subdomain,
+        ),
+        PulsedSource(
+            flux=deuterium_atom_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_D,
+            volume=ss_subdomain,
+        ),
+        PulsedSource(
+            flux=tritium_atom_flux,
+            distribution=lambda x: gaussian_distribution(x, implantation_range, width),
+            species=mobile_T,
+            volume=ss_subdomain,
+        ),
+    ]
 
     ############# Boundary Conditions #############
     surface_reaction_dd = F.SurfaceReactionBC(
@@ -1571,25 +1517,14 @@ def make_DFW_mb_model_oldBC(
         subdomain=inlet,
     )
 
-    k_r0=1.75e-24,
-    E_kr=-0.594,
-
-    # Build the two BC callables
-    c_sD = make_D_surface_concentration_SS(temperature, total_D_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-    c_sT = make_T_surface_concentration_SS(temperature, total_T_flux, T_frac, D_0, k_r0, E_D, E_kr, implantation_range, surface_x=0.0)
-
-    # Register as Dirichlet BCs at the inlet (replace existing BCs if desired)
-    bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-    bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
-
+    k_r0=1.75e-24
+    E_kr=-0.594
 
 
     my_model.boundary_conditions = [
-        bc_D,
-        bc_T,
-    #    surface_reaction_dd,
-    #    surface_reaction_dt,
-    #    surface_reaction_tt,
+        surface_reaction_dd,
+        surface_reaction_dt,
+        surface_reaction_tt,
     ]
 
     ############# Exports #############
@@ -1624,7 +1559,7 @@ def make_DFW_mb_model_oldBC(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-10)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
@@ -1980,39 +1915,45 @@ def compute_flux_values(scenario, plasma_data_handling, bin_):
             current_time += pulse.total_duration
     return occurrences
 
-def build_ufl_flux_expressions(t, occurrences, value_off=0.0):
+
+
+def build_ufl_flux_expression(occurrences, value_off=0.0):
     """
-    Creates 4 UFL expressions for D_ion, D_atom, T_ion, T_atom fluxes.
+    Returns four functions:
+    (D_ion_fn, D_atom_fn, T_ion_fn, T_atom_fn)
+    Each function accepts a UFL time variable `t` and returns the corresponding UFL expression.
     """
-    D_ion_expr = value_off
-    D_atom_expr = value_off
-    T_ion_expr = value_off
-    T_atom_expr = value_off
 
-    for occ in occurrences:
-        p = occ['pulse']
-        start, end = occ['start'], occ['end']
+    def make_flux_fn(flux_key):
+        def flux_builder(t):
+            expr = value_off
+            for occ in occurrences:
+                p = occ['pulse']
+                start, end = occ['start'], occ['end']
 
-        in_window = And(ge(t, start), lt(t, end))
-        t_rel = t - start
+                in_window = And(ge(t, start), lt(t, end))
+                t_rel = t - start
 
-        # Conditions
-        ramp_up_cond = lt(t_rel, p.ramp_up)
-        steady_cond = And(ge(t_rel, p.ramp_up), lt(t_rel, p.ramp_up + p.steady_state))
-        ramp_down_cond = ge(t_rel, p.ramp_up + p.steady_state)
+                ramp_up_cond = lt(t_rel, p.ramp_up)
+                steady_cond = And(ge(t_rel, p.ramp_up), lt(t_rel, p.ramp_up + p.steady_state))
 
-        # Ramp-up and ramp-down expressions
-        def ramp_expr(base):
-            ramp_up_expr = (base - value_off) / p.ramp_up * t_rel + value_off
-            ramp_down_raw = base - (base - value_off) / p.ramp_down * (t_rel - (p.ramp_up + p.steady_state))
-            ramp_down_expr = conditional(ge(ramp_down_raw, value_off), ramp_down_raw, value_off)
-            return conditional(ramp_up_cond, ramp_up_expr,
-                               conditional(steady_cond, base, ramp_down_expr))
+                # Ramp-up and ramp-down expressions
+                ramp_up_expr = (occ[flux_key] - value_off) / p.ramp_up * t_rel + value_off if p.ramp_up > 0 else occ[flux_key]
+                ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / p.ramp_down * (t_rel - (p.ramp_up + p.steady_state)) if p.ramp_down > 0 else occ[flux_key]
+                ramp_down_expr = conditional(ge(ramp_down_raw, value_off), ramp_down_raw, value_off)
 
-        # Add contributions for each flux type
-        D_ion_expr += conditional(in_window, ramp_expr(occ['D_ion']), 0.0)
-        D_atom_expr += conditional(in_window, ramp_expr(occ['D_atom']), 0.0)
-        T_ion_expr += conditional(in_window, ramp_expr(occ['T_ion']), 0.0)
-        T_atom_expr += conditional(in_window, ramp_expr(occ['T_atom']), 0.0)
+                pulse_flux = conditional(ramp_up_cond, ramp_up_expr,
+                                         conditional(steady_cond, occ[flux_key], ramp_down_expr))
 
-    return D_ion_expr, D_atom_expr, T_ion_expr, T_atom_expr
+                expr += conditional(in_window, pulse_flux, 0.0)
+            return expr
+        return flux_builder
+
+    # Return four callable builders
+    return (
+        make_flux_fn('D_ion'),
+        make_flux_fn('D_atom'),
+        make_flux_fn('T_ion'),
+        make_flux_fn('T_atom'),
+    )
+

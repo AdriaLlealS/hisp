@@ -6,7 +6,7 @@ Simplified HISP Model for PFC runs
 
 This file is designed to be a drop-in replacement for model(2).txt.
 """
-from typing import List
+from typing import List, Literal
 import numpy as np
 
 # NOTE: fixed import name (plasma_data_handling)
@@ -43,11 +43,14 @@ class Model:
         scenario: Scenario,
         plasma_data_handling: PlasmaDataHandling,
         coolant_temp: float = 343.0,
+        BC_type : Literal["New","Old"] = "New",
     ) -> None:
         self.reactor = reactor
         self.scenario = scenario
         self.plasma_data_handling = plasma_data_handling
         self.coolant_temp = coolant_temp
+        self.BC_type = BC_type
+        
 
     # ----------------------- public API used by the runner -----------------------
     def run_bin(self, bin: SubBin | DivBin):
@@ -89,46 +92,8 @@ class Model:
             bin=bin,
             coolant_temp=self.coolant_temp,
         )
-        d_ion_incident_flux = make_particle_flux_function(
-            scenario=self.scenario,
-            plasma_data_handling=self.plasma_data_handling,
-            bin=bin,
-            ion=True,
-            tritium=False,
-        )
-        tritium_ion_flux = make_particle_flux_function(
-            scenario=self.scenario,
-            plasma_data_handling=self.plasma_data_handling,
-            bin=bin,
-            ion=True,
-            tritium=True,
-        )
-        deuterium_atom_flux = make_particle_flux_function(
-            scenario=self.scenario,
-            plasma_data_handling=self.plasma_data_handling,
-            bin=bin,
-            ion=False,
-            tritium=False,
-        )
-        tritium_atom_flux = make_particle_flux_function(
-            scenario=self.scenario,
-            plasma_data_handling=self.plasma_data_handling,
-            bin=bin,
-            ion=False,
-            tritium=True,
-        )
 
-        common_args = {
-            "deuterium_ion_flux": d_ion_incident_flux,
-            "tritium_ion_flux": tritium_ion_flux,
-            "deuterium_atom_flux": deuterium_atom_flux,
-            "tritium_atom_flux": tritium_atom_flux,
-            "final_time": self.scenario.get_maximum_time() - 1,
-            "temperature": temperature_function,
-            "L": bin.thickness,
-        }
-
-        # Pick parent index for folder naming (compatible with existing tooling)
+         # Pick parent index for folder naming (compatible with existing tooling)
         if isinstance(bin, DivBin):
             parent_bin_index = bin.index
         elif isinstance(bin, SubBin):
@@ -140,28 +105,101 @@ class Model:
         # Both B and W (and SS for completeness) use the same numeric value: 1e-10
         rtol_value = float(1e-10)  # 1e-10
 
-        if bin.material == "W":
-            return make_W_mb_model(
-                **common_args,
-                custom_rtol=rtol_value,
-                folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+        #---BC branching---
+        if self.BC_type == "New":
+
+            d_ion_incident_flux = make_particle_flux_function(
+                scenario=self.scenario,
+                plasma_data_handling=self.plasma_data_handling,
+                bin=bin,
+                ion=True,
+                tritium=False,
             )
-        elif bin.material == "B":
-            return make_B_mb_model(
-                **common_args,
-                custom_rtol=rtol_value,
-                folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+            tritium_ion_flux = make_particle_flux_function(
+                scenario=self.scenario,
+                plasma_data_handling=self.plasma_data_handling,
+                bin=bin,
+                ion=True,
+                tritium=True,
             )
-        elif bin.material == "SS":
-            # Treat SS like W for tolerance purposes
-            return make_DFW_mb_model(
-                **common_args,
-                # Some DFW paths accept custom_rtol; if not, the kw is ignored safely
-                custom_rtol=rtol_value,
-                folder=f"mb{parent_bin_index}_dfw_results",
+            deuterium_atom_flux = make_particle_flux_function(
+                scenario=self.scenario,
+                plasma_data_handling=self.plasma_data_handling,
+                bin=bin,
+                ion=False,
+                tritium=False,
             )
-        else:
-            raise ValueError(f"Unknown material: {bin.material} for bin {getattr(bin, 'index', '?')}")
+            tritium_atom_flux = make_particle_flux_function(
+                scenario=self.scenario,
+                plasma_data_handling=self.plasma_data_handling,
+                bin=bin,
+                ion=False,
+                tritium=True,
+            )
+
+            common_args = {
+                "deuterium_ion_flux": d_ion_incident_flux,
+                "tritium_ion_flux": tritium_ion_flux,
+                "deuterium_atom_flux": deuterium_atom_flux,
+                "tritium_atom_flux": tritium_atom_flux,
+                "final_time": self.scenario.get_maximum_time() - 1,
+                "temperature": temperature_function,
+                "L": bin.thickness,
+            }
+
+            if bin.material == "W":
+                return make_W_mb_model(
+                    **common_args,
+                    custom_rtol=rtol_value,
+                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                )
+            elif bin.material == "B":
+                return make_B_mb_model(
+                    **common_args,
+                    custom_rtol=rtol_value,
+                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                )
+            elif bin.material == "SS":
+                # Treat SS like W for tolerance purposes
+                return make_DFW_mb_model(
+                    **common_args,
+                    # Some DFW paths accept custom_rtol; if not, the kw is ignored safely
+                    custom_rtol=rtol_value,
+                    folder=f"mb{parent_bin_index}_dfw_results",
+                )
+            else:
+                raise ValueError(f"Unknown material: {bin.material} for bin {getattr(bin, 'index', '?')}")
+            
+        elif self.BC_type == "Old":
+
+            common_args = {
+                "final_time": self.scenario.get_maximum_time() - 1,
+                "temperature": temperature_function,
+                "L": bin.thickness,
+            }
+    
+            if bin.material == "W":
+                return make_W_mb_model_oldBC(
+                    **common_args,
+                    custom_rtol=rtol_value,
+                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                )
+            elif bin.material == "B":
+                return make_B_mb_model_oldBC(
+                    **common_args,
+                    custom_rtol=rtol_value,
+                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                )
+            elif bin.material == "SS":
+                # Treat SS like W for tolerance purposes
+                return make_DFW_mb_model_oldBC(
+                    **common_args,
+                    # Some DFW paths accept custom_rtol; if not, the kw is ignored safely
+                    custom_rtol=rtol_value,
+                    folder=f"mb{parent_bin_index}_dfw_results",
+                )
+            else:
+                raise ValueError(f"Unknown material: {bin.material} for bin {getattr(bin, 'index', '?')}")
 
     # ----------------------- helpers -----------------------
     def constant_max_stepsize(self, t: float) -> float:
