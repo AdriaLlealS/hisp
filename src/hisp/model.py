@@ -23,6 +23,7 @@ from hisp.festim_models import (
     make_DFW_mb_model_oldBC,
     make_temperature_function,
     make_particle_flux_function,
+    compute_flux_values,
 )
 
 
@@ -176,6 +177,7 @@ class Model:
                 "final_time": self.scenario.get_maximum_time() - 1,
                 "temperature": temperature_function,
                 "L": bin.thickness,
+                "occurrences": compute_flux_values(self.scenario, self.plasma_data_handling, bin),
             }
     
             if bin.material == "W":

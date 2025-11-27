@@ -16,7 +16,7 @@ import numpy as np
 import festim as F
 import h_transport_materials as htm
 
-from typing import Callable, Tuple, Dict, Union
+from typing import Callable, Tuple, Dict, Union, List
 from numpy.typing import NDArray
 
 import math
@@ -751,6 +751,7 @@ def make_W_mb_model_oldBC(
     final_time: float,
     folder: str,
     L: float,
+    occurrences: List[Dict],
     custom_rtol: Union[
         float, Callable
     ] = 1e-10,  # default rtol unless otherwise specified, used for everything but BAKE
@@ -928,8 +929,6 @@ def make_W_mb_model_oldBC(
     ############# Flux Parameters #############
     
     distribution = gaussian_implantation_ufl(implantation_range, width, thickness = L)
-    info_array = build_pulse_info_array
-    occurrences = compute_flux_values(info_array)
     deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
 
     my_model.sources = [
@@ -1042,6 +1041,7 @@ def make_B_mb_model_oldBC(
     final_time: float,
     folder: str,
     L: float,
+    occurrences: List[Dict],
     custom_atol: Union[
         float, Callable
     ] = 1e8,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
@@ -1260,8 +1260,6 @@ def make_B_mb_model_oldBC(
     ############# Flux Parameters #############
 
     distribution = gaussian_implantation_ufl(implantation_range, width, thickness = L)
-    info_array = build_pulse_info_array
-    occurrences = compute_flux_values(info_array)
     deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
 
     my_model.sources = [
@@ -1347,6 +1345,7 @@ def make_DFW_mb_model_oldBC(
     final_time: float,
     folder: str,
     L: float,
+    occurrences: List[Dict],
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the DFW MB scenario.
@@ -1455,8 +1454,6 @@ def make_DFW_mb_model_oldBC(
     ############# Flux Parameters #############
 
     distribution = gaussian_implantation_ufl(implantation_range, width, thickness = L)
-    info_array = build_pulse_info_array
-    occurrences = compute_flux_values(info_array)
     deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
 
     my_model.sources = [
