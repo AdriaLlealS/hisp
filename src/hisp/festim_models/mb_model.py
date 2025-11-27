@@ -779,7 +779,7 @@ def make_W_mb_model_oldBC(
         if xs[-1] < L: xs.append(L)
         return np.array(xs)
     
-    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.015)
+    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.007)
     my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
