@@ -104,7 +104,7 @@ class Model:
 
         # ---------------- r_tol policy ----------------
         # Both B and W (and SS for completeness) use the same numeric value: 1e-10
-        rtol_value = float(1e-9)  # 1e-10
+        rtol_value = float(1e-10)  # 1e-10
 
         #---BC branching---
         if self.BC_type == "New":
