@@ -167,12 +167,13 @@ def gaussian_implantation_ufl(Rp, sigma, axis=0, thickness=None):
     """
     Returns callable value(x, t) -> UFL expression S(x,t) [m^-3 s^-1]
     - Rp, sigma in meters
-    - J_t: callable (t -> UFL expr) giving m^-2 s^-1
     - axis in {0,1,2} selects x[axis] as depth coordinate
     - If thickness is not None (meters), renormalize over [0, thickness] to conserve J(t)
     """
     inv_sqrt_2pi = 1.0 / np.sqrt(2.0 * np.pi)
     if thickness is None:
+        C = 0.5 * (1.0 + erf(Rp / (sigma * sqrt(2.0))))  # Gaussian mass in [0, +inf)
+        C = max(C, 1e-12)  # numerical safeguard
         norm = inv_sqrt_2pi / sigma
         def value(x):
             xi = x[axis]
