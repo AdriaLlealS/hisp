@@ -768,13 +768,6 @@ def make_W_mb_model_oldBC(
     my_model = CustomProblem()
 
     ############# Material Parameters #############
-
-    def graded_vertices(L, h0, r):
-        xs = [0.0]; h = h0
-        while xs[-1] + h < L:
-            xs.append(xs[-1] + h); h *= r
-        if xs[-1] < L: xs.append(L)
-        return np.array(xs)
     
     vertices_graded = graded_vertices(L=L, h0=1e-10, r=1.01)
     my_model.mesh = F.Mesh1D(vertices_graded)
@@ -948,7 +941,7 @@ def make_W_mb_model_oldBC(
         reactant=[mobile_D, mobile_D],
         gas_pressure=0,
         k_r0=7.94e-17,  # calculated from simplified surface kinetic model with Montupet-Leblond 10.1016/j.nme.2021.101062
-        E_kr=-2,
+        E_kr=-2.0,
         k_d0=0,
         E_kd=0,
         subdomain=inlet,
@@ -958,7 +951,7 @@ def make_W_mb_model_oldBC(
         reactant=[mobile_T, mobile_T],
         gas_pressure=0,
         k_r0=7.94e-17,
-        E_kr=-2,
+        E_kr=-2.0,
         k_d0=0,
         E_kd=0,
         subdomain=inlet,
@@ -968,7 +961,7 @@ def make_W_mb_model_oldBC(
         reactant=[mobile_D, mobile_T],
         gas_pressure=0,
         k_r0=7.94e-17,
-        E_kr=-2,
+        E_kr=-2.0,
         k_d0=0,
         E_kd=0,
         subdomain=inlet,
@@ -976,9 +969,11 @@ def make_W_mb_model_oldBC(
 
 
     my_model.boundary_conditions = [
-        surface_reaction_dd,
-        surface_reaction_dt,
-        surface_reaction_tt,
+        #surface_reaction_dd,
+        #surface_reaction_dt,
+        #surface_reaction_tt,
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
     ]
 
     ############# Exports #############
@@ -1011,16 +1006,16 @@ def make_W_mb_model_oldBC(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e12,
+        atol=1e10,
         rtol=custom_rtol,
         max_iterations=500,  # the first timestep needs about 66 iterations....
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-8)
-    #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    #my_model.settings.preconditioner  = "lu"       # LU factorization
-    #my_model._element_for_traps = "CG"
+    my_model.settings.stepsize = Stepsize(initial_value=1e-6)
+    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
+    my_model.settings.preconditioner  = "lu"       # LU factorization
+    my_model._element_for_traps = "CG"
 
     return my_model, quantities
 
