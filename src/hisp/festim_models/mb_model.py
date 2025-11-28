@@ -751,7 +751,7 @@ def make_W_mb_model_oldBC(
     occurrences: List[Dict],
     custom_rtol: Union[
         float, Callable
-    ] = 1e-5,  # default rtol unless otherwise specified, used for everything but BAKE
+    ] = 1e-7,  # default rtol unless otherwise specified, used for everything but BAKE
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
@@ -769,7 +769,7 @@ def make_W_mb_model_oldBC(
 
     ############# Material Parameters #############
     
-    vertices_graded = graded_vertices(L=L, h0=1e-11, r=1.01)
+    vertices_graded = graded_vertices(L=L, h0=1e-10, r=1.01)
     my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
