@@ -210,7 +210,7 @@ class Model:
     # ----------------------- helpers -----------------------
     def constant_max_stepsize(self, t: float) -> float:
         """Constant stepsize cap (s) = 100.0 for every t and every case."""
-        return 100.0
+        return 500.0
 
     def make_milestones(self, initial_stepsize_value: float) -> List[float]:
         """
