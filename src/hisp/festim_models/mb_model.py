@@ -751,7 +751,7 @@ def make_W_mb_model_oldBC(
     occurrences: List[Dict],
     custom_rtol: Union[
         float, Callable
-    ] = 1e-8,  # default rtol unless otherwise specified, used for everything but BAKE
+    ] = 1e-5,  # default rtol unless otherwise specified, used for everything but BAKE
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
@@ -769,7 +769,7 @@ def make_W_mb_model_oldBC(
 
     ############# Material Parameters #############
     
-    vertices_graded = graded_vertices(L=L, h0=1e-10, r=1.01)
+    vertices_graded = graded_vertices(L=L, h0=1e-11, r=1.01)
     my_model.mesh = F.Mesh1D(vertices_graded)
 
     # W material parameters
@@ -969,11 +969,11 @@ def make_W_mb_model_oldBC(
 
 
     my_model.boundary_conditions = [
-        #surface_reaction_dd,
-        #surface_reaction_dt,
-        #surface_reaction_tt,
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        surface_reaction_dd,
+        surface_reaction_dt,
+        surface_reaction_tt,
+        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
     ]
 
     ############# Exports #############
@@ -1012,7 +1012,7 @@ def make_W_mb_model_oldBC(
         final_time=final_time,
     )
 
-    my_model.settings.stepsize = Stepsize(initial_value=1e-6)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-12)
     my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
