@@ -969,11 +969,11 @@ def make_W_mb_model_oldBC(
 
 
     my_model.boundary_conditions = [
-        surface_reaction_dd,
-        surface_reaction_dt,
-        surface_reaction_tt,
-        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
-        #F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        #surface_reaction_dd,
+        #surface_reaction_dt,
+        #surface_reaction_tt,
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+        F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
     ]
 
     ############# Exports #############
@@ -1006,7 +1006,7 @@ def make_W_mb_model_oldBC(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e14,
+        atol=1e10,
         rtol=custom_rtol,
         max_iterations=500,  # the first timestep needs about 66 iterations....
         final_time=final_time,
@@ -1028,7 +1028,7 @@ def make_B_mb_model_oldBC(
     occurrences: List[Dict],
     custom_atol: Union[
         float, Callable
-    ] = 1e8,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    ] = 1e10,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     custom_rtol: Union[
         float, Callable
     ] = 1e-10,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
