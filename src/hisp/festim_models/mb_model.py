@@ -44,7 +44,7 @@ def make_W_mb_model(
     L: float,
     custom_rtol: Union[
         float, Callable
-    ] = 1e-10,  # default rtol unless otherwise specified, used for everything but BAKE
+    ] = 1e-8,  # default rtol unless otherwise specified, used for everything but BAKE
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
