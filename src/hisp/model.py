@@ -72,7 +72,7 @@ class Model:
         #my_model.settings.stepsize.target_nb_iterations = 5
         # Adaptivity knobs (unchanged) trying to make W simulations run with the Old BCs
         my_model.settings.stepsize.growth_factor = 1.1
-        my_model.settings.stepsize.cutback_factor = 0.9
+        my_model.settings.stepsize.cutback_factor = 0.5
         my_model.settings.stepsize.target_nb_iterations = 4
 
         # ---- Constant stepsize cap: 100000 s everywhere ----
