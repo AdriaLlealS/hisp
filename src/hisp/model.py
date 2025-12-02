@@ -284,7 +284,7 @@ class Model:
             # the stepsize is 1/10 of the duration of the pulse
             if pulse.pulse_type == "FP":
                 if relative_time_within_sub_pulse < pulse.duration_no_waiting:
-                    value = 1.0  # s
+                    value = 5.0  # s
                 else:
                     value = 100.0 #s
             else:
