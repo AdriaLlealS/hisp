@@ -108,7 +108,7 @@ class Model:
 
         # ---------------- r_tol policy ----------------
         # Both B and W (and SS for completeness) use the same numeric value: 1e-10
-        rtol_value = float(1e-9)  # 1e-10
+        rtol_value = float(1e-11)  # 1e-10
 
         #---BC branching---
         if self.BC_type == "New":
@@ -210,7 +210,7 @@ class Model:
     # ----------------------- helpers -----------------------
     def constant_max_stepsize(self, t: float) -> float:
         """Constant stepsize cap (s) = 100.0 for every t and every case."""
-        return 10.0
+        return 500.0
 
     def make_milestones(self, initial_stepsize_value: float) -> List[float]:
         """
