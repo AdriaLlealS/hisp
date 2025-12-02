@@ -44,7 +44,7 @@ def make_W_mb_model(
     L: float,
     custom_rtol: Union[
         float, Callable
-    ] = 1e-11,  # default rtol unless otherwise specified, used for everything but BAKE
+    ] = 1e-9,  # default rtol unless otherwise specified, used for everything but BAKE
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
@@ -66,7 +66,7 @@ def make_W_mb_model(
 
     ############# Material Parameters #############
     
-    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.008)
+    vertices_graded = graded_vertices(L=L, h0=L/12e8, r=1.03)
 
     my_model.mesh = F.Mesh1D(vertices_graded)
 
@@ -260,7 +260,7 @@ def make_W_mb_model(
     )
 
     my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
+    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
 
