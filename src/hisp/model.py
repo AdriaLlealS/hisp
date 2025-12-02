@@ -76,7 +76,11 @@ class Model:
         my_model.settings.stepsize.target_nb_iterations = 4
 
         # ---- Constant stepsize cap: 100000 s everywhere ----
-        my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
+        #my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
+        if bin.material == "B":
+            my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
+        else:
+            my_model.settings.stepsize.max_stepsize = self.max_stepsize
 
         # Run
         my_model.initialise()
@@ -254,3 +258,83 @@ class Model:
             current_time = start_of_pulse + pulse.total_duration * pulse.nb_pulses
 
         return sorted(np.unique(milestones).tolist())
+    
+    def max_stepsize(self, t: float) -> float:
+        pulse = self.scenario.get_pulse(t)
+        relative_time = t - self.scenario.get_time_start_current_pulse(t)  # Pulse()
+        if pulse.pulse_type == "RISP":
+            relative_time_within_sub_pulse = relative_time % pulse.total_duration
+            # RISP has a special treatment
+            time_real_risp_starts = (
+                100  # (s) relative time at which the real RISP starts
+            )
+            if relative_time_within_sub_pulse < time_real_risp_starts - 11:
+                value = None  # s
+            elif relative_time_within_sub_pulse < time_real_risp_starts + 160:
+                value = 1e-3  # s
+            # elif relative_time_within_sub_pulse  < time_real_risp_starts + 1:
+            #     value = 0.01  # s
+            # elif relative_time_within_sub_pulse  < time_real_risp_starts + 50:
+            #     value = 0.1  # s
+            else:
+                # NOTE this seems to have an influence on the accuracy of the calculation
+                value = 1  # s
+        else:
+            relative_time_within_sub_pulse = relative_time % pulse.total_duration
+            # the stepsize is 1/10 of the duration of the pulse
+            if pulse.pulse_type == "FP":
+                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
+                    value = 1.0  # s
+                else:
+                    value = 100.0 #s
+            else:
+                value = 100.0
+        return periodic_step_function(
+            relative_time,
+            period_on=pulse.duration_no_waiting,
+            period_total=pulse.total_duration,
+            value=value,
+            value_off=None,
+        )
+    
+
+    def B_stepsize(self, t: float) -> float:
+        pulse = self.scenario.get_pulse(t)
+        relative_time = t - self.scenario.get_time_start_current_pulse(t)  # Pulse()
+        if pulse.pulse_type == "RISP":
+            relative_time_within_sub_pulse = relative_time % pulse.total_duration
+            # RISP has a special treatment
+            time_real_risp_starts = (
+                100  # (s) relative time at which the real RISP starts
+            )
+            if relative_time_within_sub_pulse < time_real_risp_starts - 5:
+                value = None  # s
+            elif relative_time_within_sub_pulse < time_real_risp_starts + 160:
+                value = 1e-4  # s
+            else:
+                # NOTE this seems to have an influence on the accuracy of the calculation
+                value = 1  # s
+        else:
+            relative_time_within_sub_pulse = relative_time % pulse.total_duration
+            # the stepsize is 1/10 of the duration of the pulse
+            if pulse.pulse_type == "FP":
+                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
+                    value = 0.01  # s # usually 0.01
+                else:
+                    value = pulse.duration_no_waiting / 10
+            elif pulse.pulse_type == "BAKE":
+                value = pulse.duration_no_waiting / 10000  # usually /10
+            elif pulse.pulse_type == "FP_D":
+                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
+                    value = 0.001  # s
+                else:
+                    value = pulse.duration_no_waiting / 10
+            else:
+                value = pulse.duration_no_waiting / 100  # usually /100
+        return periodic_step_function(
+            relative_time,
+            period_on=pulse.duration_no_waiting,
+            period_total=pulse.total_duration,
+            value=value,
+            value_off=None,
+        )
