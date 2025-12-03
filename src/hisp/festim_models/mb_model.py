@@ -108,8 +108,7 @@ def make_W_mb_model(
 
     
     # After building the simulation
-    for name, func in my_model.functions.items():
-        print(name, func.function_space.ufl_element().family())
+    print(dir(my_model))
 
 
 
