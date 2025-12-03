@@ -6,6 +6,7 @@ from hisp.helpers import (
     Stepsize,
     periodic_pulse_function,
     gaussian_implantation_ufl,
+    XDMFExportEveryDt
 )
 from hisp.scenario import Scenario
 from hisp.plamsa_data_handling import PlasmaDataHandling
@@ -45,7 +46,7 @@ def make_W_mb_model(
     custom_rtol: Union[
         float, Callable
     ] = 1e-6,  # default rtol unless otherwise specified, used for everything but BAKE
-    exports=False,
+    exports=True,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
 
@@ -229,17 +230,25 @@ def make_W_mb_model(
     ]
 
     ############# Exports #############
+
+    MIN_DT1 = 1.0; MIN_DT2 = 1.0; SWITCH = 1000.0
+    restart_times = [final_time]  # keep your set
+
     if exports:
         my_model.exports = [
-            F.VTXSpeciesExport(f"{folder}/mobile_concentration_t.bp", field=mobile_T),
-            F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D),
-            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_d3.bp", field=trap3_D),
-            # F.VTXSpeciesExport(f"{folder}/trapped_concentration_t3.bp", field=trap3_T),
-        ]
+            XDMFExportEveryDt(f"{folder}/mobile_concentration_d.xdmf", field=mobile_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            XDMFExportEveryDt(f"{folder}/mobile_concentration_t.xdmf", field=mobile_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            XDMFExportEveryDt(f"{folder}/trapped_concentration_d1.xdmf", field=trap1_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            XDMFExportEveryDt(f"{folder}/trapped_concentration_t1.xdmf", field=trap1_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            XDMFExportEveryDt(f"{folder}/trapped_concentration_d2.xdmf", field=trap2_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            XDMFExportEveryDt(f"{folder}/trapped_concentration_t2.xdmf", field=trap2_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            F.VTXSpeciesExport(f"{folder}/mobile_concentration_t.bp", field=mobile_T, checkpoint=True, times=restart_times),
+            F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D, checkpoint=True, times=restart_times),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D, checkpoint=True, times=restart_times),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t1.bp", field=trap1_T, checkpoint=True, times=restart_times),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_d2.bp", field=trap2_D, checkpoint=True, times=restart_times),
+            F.VTXSpeciesExport(f"{folder}/trapped_concentration_t2.bp", field=trap2_T, checkpoint=True, times=restart_times),
+    ]
 
     quantities = {}
     for species in my_model.species:
