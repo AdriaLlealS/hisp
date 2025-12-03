@@ -271,32 +271,13 @@ def make_W_mb_model(
     )
 
     my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    #my_model.settings.preconditioner  = "lu"       # LU factorization
+    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
+    my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
     print("Trap element type:", my_model._element_for_traps)
     print(my_model.settings.__dict__)
     print(my_model.petcs_options)
     print(my_model.petsc_options)
-
-
-    my_model.petsc_options = {
-        # Nonlinear solver options
-        "snes_type": "newtonls",        # Newton line search
-        "snes_linesearch_type": "basic",
-        "snes_max_it": 50,
-        "snes_rtol": 1e-8,
-        "snes_atol": 1e-10,
-
-        # Linear solver options
-        "ksp_type": "gmres",            # Krylov solver
-        "ksp_rtol": 1e-8,
-        "ksp_atol": 1e-12,
-        "pc_type": "lu",                # Direct LU factorization
-        "mat_solver_type": "mumps"      # Robust parallel solver
-    }
-
-    my_model.create_solver()
 
     return my_model, quantities
 
