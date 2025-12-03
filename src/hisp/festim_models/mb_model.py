@@ -226,7 +226,9 @@ def make_W_mb_model(
 
     my_model.boundary_conditions = [
         bc_D,
-        bc_T
+        bc_T,
+        F.FixedConcentrationBC(subdomain=outlet, value=0, species="D"),
+        F.FixedConcentrationBC(subdomain=outlet, value=0, species="T")
     ]
 
     ############# Exports #############
