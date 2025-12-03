@@ -65,7 +65,31 @@ def make_W_mb_model(
     """
     my_model = CustomProblem()
 
-    print(f"FESTIM version: {F.__version__}")
+    # Diagnostic information about FESTIM installation
+    print(f"FESTIM version: {getattr(F, '__version__', 'Not found')}")
+    print(f"FESTIM module location: {F.__file__}")
+    print(f"FESTIM module name: {F.__name__}")
+    
+    # Check for git information if it's a development install
+    try:
+        import os
+        festim_dir = os.path.dirname(F.__file__)
+        git_dir = os.path.join(festim_dir, '..', '.git')
+        if os.path.exists(git_dir):
+            print(f"FESTIM appears to be a git installation at: {festim_dir}")
+            # Try to get git commit info
+            try:
+                import subprocess
+                result = subprocess.run(['git', '-C', festim_dir, 'rev-parse', 'HEAD'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    print(f"FESTIM git commit: {result.stdout.strip()}")
+            except:
+                pass
+        else:
+            print(f"FESTIM installation directory: {festim_dir}")
+    except Exception as e:
+        print(f"Could not get additional FESTIM info: {e}")
 
     ############# Material Parameters #############
     
