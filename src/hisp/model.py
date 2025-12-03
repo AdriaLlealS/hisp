@@ -159,7 +159,7 @@ class Model:
             if bin.material == "W":
                 return make_W_mb_model(
                     **common_args,
-                    custom_rtol=rtol_value,
+                    #custom_rtol=rtol_value,
                     folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
                 )
             elif bin.material == "B":

@@ -44,7 +44,7 @@ def make_W_mb_model(
     L: float,
     custom_rtol: Union[
         float, Callable
-    ] = 1e-8,  # default rtol unless otherwise specified, used for everything but BAKE
+    ] = 1e-6,  # default rtol unless otherwise specified, used for everything but BAKE
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
@@ -253,7 +253,7 @@ def make_W_mb_model(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e11,
+        atol=1e13,
         rtol=custom_rtol,
         max_iterations=100,  # the first timestep needs about 66 iterations....
         final_time=final_time,
