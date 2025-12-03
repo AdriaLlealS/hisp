@@ -65,35 +65,9 @@ def make_W_mb_model(
     """
     my_model = CustomProblem()
 
-    # Diagnostic information about FESTIM installation
-    print(f"FESTIM version: {getattr(F, '__version__', 'Not found')}")
-    print(f"FESTIM module location: {F.__file__}")
-    print(f"FESTIM module name: {F.__name__}")
-    
-    # Check for git information if it's a development install
-    try:
-        import os
-        festim_dir = os.path.dirname(F.__file__)
-        git_dir = os.path.join(festim_dir, '..', '.git')
-        if os.path.exists(git_dir):
-            print(f"FESTIM appears to be a git installation at: {festim_dir}")
-            # Try to get git commit info
-            try:
-                import subprocess
-                result = subprocess.run(['git', '-C', festim_dir, 'rev-parse', 'HEAD'], 
-                                      capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    print(f"FESTIM git commit: {result.stdout.strip()}")
-            except:
-                pass
-        else:
-            print(f"FESTIM installation directory: {festim_dir}")
-    except Exception as e:
-        print(f"Could not get additional FESTIM info: {e}")
-
     ############# Material Parameters #############
     
-    vertices_graded = graded_vertices(L=L, h0=L/12e8, r=1.03)
+    vertices_graded = graded_vertices(L=L, h0=L/12e8, r=1.01)
 
     my_model.mesh = F.Mesh1D(vertices_graded)
 
@@ -130,6 +104,13 @@ def make_W_mb_model(
     trap2_T = F.Species("trap2_T", mobile=False)
     # trap3_D = F.Species("trap3_D", mobile=False)
     # trap3_T = F.Species("trap3_T", mobile=False)
+
+
+    elem = trap1_D.C.function_space.ufl_element()
+    print("Species:", trap1_D.name)
+    print("Element family:", elem.family())   # "Lagrange" = CG, "Discontinuous Lagrange" = DG
+    print("Degree:", elem.degree())
+
 
     # traps
     empty_trap1 = F.ImplicitSpecies(  # implicit trap 1
