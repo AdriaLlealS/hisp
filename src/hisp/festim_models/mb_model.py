@@ -19,6 +19,7 @@ import h_transport_materials as htm
 
 from typing import Callable, Tuple, Dict, Union, List
 from numpy.typing import NDArray
+from scipy.optimize import bisect
 
 import math
 
@@ -32,6 +33,25 @@ def graded_vertices(L, h0, r):
             xs.append(xs[-1] + h); h *= r
         if xs[-1] < L: xs.append(L)
         return np.array(xs)
+
+
+def graded_vertices_n(L, h0, n):
+    # Solve for r using bisection
+    def f(r):
+        return h0 * (1 - r**(n-1)) / (1 - r) - L
+    
+    # r > 1 for grading; search in [1, 10] (adjust if needed)
+    r = bisect(f, 1.0000001, 10)
+    
+    # Generate vertices
+    xs = [0.0]
+    h = h0
+    for _ in range(n-2):
+        xs.append(xs[-1] + h)
+        h *= r
+    xs.append(L)
+    return np.array(xs)
+
 
 
 def make_W_mb_model(
