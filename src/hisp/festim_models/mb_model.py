@@ -264,7 +264,7 @@ def make_W_mb_model(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e11,
+        atol=1e8,
         rtol=custom_rtol,
         max_iterations=100,  # the first timestep needs about 66 iterations....
         final_time=final_time,
@@ -278,6 +278,26 @@ def make_W_mb_model(
     print(my_model.settings.__dict__)
     print(my_model.petcs_options)
     print(my_model.petsc_options)
+
+
+    my_model.petsc_options = {
+        # Nonlinear solver options
+        "snes_type": "newtonls",        # Newton line search
+        "snes_linesearch_type": "basic",
+        "snes_max_it": 50,
+        "snes_rtol": 1e-8,
+        "snes_atol": 1e-10,
+
+        # Linear solver options
+        "ksp_type": "gmres",            # Krylov solver
+        "ksp_rtol": 1e-8,
+        "ksp_atol": 1e-12,
+        "pc_type": "lu",                # Direct LU factorization
+        "mat_solver_type": "mumps"      # Robust parallel solver
+    }
+
+    my_model.create_solver()
+
     return my_model, quantities
 
 
