@@ -106,10 +106,11 @@ def make_W_mb_model(
     # trap3_T = F.Species("trap3_T", mobile=False)
 
 
-    elem = trap1_D.C.function_space.ufl_element()
-    print("Species:", trap1_D.name)
-    print("Element family:", elem.family())   # "Lagrange" = CG, "Discontinuous Lagrange" = DG
-    print("Degree:", elem.degree())
+    
+    # After building the simulation
+    for name, func in model.functions.items():
+        print(name, func.function_space.ufl_element().family())
+
 
 
     # traps
