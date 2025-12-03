@@ -108,7 +108,8 @@ def make_W_mb_model(
 
     
     # After building the simulation
-    print(dir(my_model))
+    #print(dir(my_model))
+    print("Trap element type:", my_model._element_for_traps)
 
 
 
