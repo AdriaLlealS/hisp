@@ -65,6 +65,8 @@ def make_W_mb_model(
     """
     my_model = CustomProblem()
 
+    print(f"FESTIM version: {F.__version__}")
+
     ############# Material Parameters #############
     
     vertices_graded = graded_vertices(L=L, h0=L/12e8, r=1.03)
