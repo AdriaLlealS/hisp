@@ -236,12 +236,12 @@ def make_W_mb_model(
 
     if exports:
         my_model.exports = [
-            XDMFExportEveryDt(f"{folder}/mobile_concentration_d.xdmf", field=mobile_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
-            XDMFExportEveryDt(f"{folder}/mobile_concentration_t.xdmf", field=mobile_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
-            XDMFExportEveryDt(f"{folder}/trapped_concentration_d1.xdmf", field=trap1_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
-            XDMFExportEveryDt(f"{folder}/trapped_concentration_t1.xdmf", field=trap1_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
-            XDMFExportEveryDt(f"{folder}/trapped_concentration_d2.xdmf", field=trap2_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
-            XDMFExportEveryDt(f"{folder}/trapped_concentration_t2.xdmf", field=trap2_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            #XDMFExportEveryDt(f"{folder}/mobile_concentration_d.xdmf", field=mobile_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            #XDMFExportEveryDt(f"{folder}/mobile_concentration_t.xdmf", field=mobile_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            #XDMFExportEveryDt(f"{folder}/trapped_concentration_d1.xdmf", field=trap1_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            #XDMFExportEveryDt(f"{folder}/trapped_concentration_t1.xdmf", field=trap1_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            #XDMFExportEveryDt(f"{folder}/trapped_concentration_d2.xdmf", field=trap2_D, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
+            #XDMFExportEveryDt(f"{folder}/trapped_concentration_t2.xdmf", field=trap2_T, min_dt1=MIN_DT1, min_dt2=MIN_DT2, switch=SWITCH),
             F.VTXSpeciesExport(f"{folder}/mobile_concentration_t.bp", field=mobile_T, checkpoint=True, times=restart_times),
             F.VTXSpeciesExport(f"{folder}/mobile_concentration_d.bp", field=mobile_D, checkpoint=True, times=restart_times),
             F.VTXSpeciesExport(f"{folder}/trapped_concentration_d1.bp", field=trap1_D, checkpoint=True, times=restart_times),
