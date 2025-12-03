@@ -105,14 +105,6 @@ def make_W_mb_model(
     # trap3_D = F.Species("trap3_D", mobile=False)
     # trap3_T = F.Species("trap3_T", mobile=False)
 
-
-    
-    # After building the simulation
-    #print(dir(my_model))
-    print("Trap element type:", my_model._element_for_traps)
-
-
-
     # traps
     empty_trap1 = F.ImplicitSpecies(  # implicit trap 1
         n=6.338e24,  # 1e-4 at.fr.
@@ -280,6 +272,7 @@ def make_W_mb_model(
     #my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
     #my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
+    print("Trap element type:", my_model._element_for_traps)
 
     return my_model, quantities
 
