@@ -46,7 +46,7 @@ def make_W_mb_model(
     custom_rtol: Union[
         float, Callable
     ] = 1e-8,  # default rtol unless otherwise specified, used for everything but BAKE
-    exports=True,
+    exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
 
@@ -227,8 +227,6 @@ def make_W_mb_model(
     my_model.boundary_conditions = [
         bc_D,
         bc_T,
-        F.FixedConcentrationBC(subdomain=outlet, value=0, species="D"),
-        F.FixedConcentrationBC(subdomain=outlet, value=0, species="T")
     ]
 
     ############# Exports #############
@@ -264,20 +262,15 @@ def make_W_mb_model(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e4,
+        atol=1e10,
         rtol=custom_rtol,
         max_iterations=100,  # the first timestep needs about 66 iterations....
         final_time=final_time,
     )
 
     my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    my_model.settings.linear_solver   = "preonly"  # one direct solve per Newton iteration
-    my_model.settings.preconditioner  = "lu"       # LU factorization
     my_model._element_for_traps = "CG"
-    print("Trap element type:", my_model._element_for_traps)
-    print(my_model.settings.__dict__)
-    print(my_model.petcs_options)
-    print(my_model.petsc_options)
+    #print("Trap element type:", my_model._element_for_traps)
 
     return my_model, quantities
 
@@ -293,10 +286,10 @@ def make_B_mb_model(
     L: float,
     custom_atol: Union[
         float, Callable
-    ] = 1e9,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    ] = 1e10,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     custom_rtol: Union[
         float, Callable
-    ] = 1e-11,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    ] = 1e-8,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the B MB scenario.
