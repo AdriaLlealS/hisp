@@ -87,7 +87,8 @@ def make_W_mb_model(
 
     ############# Material Parameters #############
     
-    vertices_graded = graded_vertices(L=L, h0=L/12e8, r=1.01)
+    #vertices_graded = graded_vertices(L=L, h0=L/6e8, r=1.01)
+    vertices_graded = graded_vertices_n(L=L, h0=1e-11, n=1001)
 
     my_model.mesh = F.Mesh1D(vertices_graded)
 
@@ -282,7 +283,7 @@ def make_W_mb_model(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e10,
+        atol=1e11,
         rtol=custom_rtol,
         max_iterations=100,  # the first timestep needs about 66 iterations....
         final_time=final_time,
@@ -306,10 +307,10 @@ def make_B_mb_model(
     L: float,
     custom_atol: Union[
         float, Callable
-    ] = 1e10,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    ] = 1e11,  # default atol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     custom_rtol: Union[
         float, Callable
-    ] = 1e-8,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
+    ] = 1e-9,  # default rtol unless otherwise specified, used for FP, ICWC, RISP in hisp-for-iter
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the B MB scenario.
@@ -331,7 +332,8 @@ def make_B_mb_model(
 
     ############# Material Parameters #############
 
-    vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
+    #vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.01)
+    vertices_graded = graded_vertices_n(L=L, h0=1e-11, n=1001)
 
     my_model.mesh = F.Mesh1D(vertices_graded)
 
