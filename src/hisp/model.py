@@ -77,12 +77,12 @@ class Model:
 
         # ---- Constant stepsize cap: 100000 s everywhere ----
         #my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
-        if bin.material == "B":
-            my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
-        else:
-            my_model.settings.stepsize.max_stepsize = self.max_stepsize
+        #if bin.material == "B":
+        #    my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
+        #else:
+        #    my_model.settings.stepsize.max_stepsize = self.max_stepsize
 
-        #my_model.settings.stepsize.max_stepsize = self.max_stepsize
+        my_model.settings.stepsize.max_stepsize = self.max_stepsize
 
         # Run
         my_model.initialise()
@@ -114,7 +114,7 @@ class Model:
 
         # ---------------- r_tol policy ----------------
         # Both B and W (and SS for completeness) use the same numeric value: 1e-10
-        rtol_value = float(1e-8)  # 1e-10
+        rtol_value = float(1e-9)  # 1e-10
 
         #---BC branching---
         if self.BC_type == "New":
@@ -286,11 +286,11 @@ class Model:
             # the stepsize is 1/10 of the duration of the pulse
             if pulse.pulse_type == "FP":
                 if relative_time_within_sub_pulse < pulse.duration_no_waiting:
-                    value = 2.0  # s
+                    value = 0.5  # s
                 else:
-                    value = 200.0 #s
+                    value = 50.0 #s
             else:
-                value = 200.0
+                value = 50.0
         return periodic_step_function(
             relative_time,
             period_on=pulse.duration_no_waiting,
