@@ -35,22 +35,25 @@ def graded_vertices(L, h0, r):
         return np.array(xs)
 
 
-def graded_vertices_n(L, h0, n):
-    # Solve for r using bisection
-    def f(r):
-        return h0 * (1 - r**(n-1)) / (1 - r) - L
-    
-    # r > 1 for grading; search in [1, 10] (adjust if needed)
-    r = bisect(f, 1.0000001, 10)
-    
-    # Generate vertices
+
+def build_vertices(pb, L, h0, r, n_const):
+    # Graded segment: from 0 to bp
     xs = [0.0]
     h = h0
-    for _ in range(n-2):
+    while xs[-1] + h < pb:
         xs.append(xs[-1] + h)
         h *= r
-    xs.append(L)
-    return np.array(xs)
+    xs.append(pb)  # ensure pb is included
+
+    # Constant segment: from pb to L
+    const_part = np.linspace(pb, L, n_const)
+
+    # Remove duplicate pb from const_part
+    const_part = const_part[1:]
+
+    # Combine
+    return np.array(xs + const_part.tolist())
+
 
 
 
@@ -87,10 +90,11 @@ def make_W_mb_model(
 
     ############# Material Parameters #############
     
-    vertices_graded = graded_vertices(L=L, h0=1e-11, r=1.03)
-    #vertices_graded = graded_vertices_n(L=L, h0=1e-11, n=1001)
+    #vertices_graded = graded_vertices(L=L, h0=5e-12, r=1.05)
 
-    my_model.mesh = F.Mesh1D(vertices_graded)
+    vertices = build_vertices(pb=1e-4, L=L, h0=5e-12, r=1.03, n_const=500)
+
+    my_model.mesh = F.Mesh1D(vertices)
 
     # W material parameters
     w_density = 6.3382e28  # atoms/m3
@@ -332,10 +336,10 @@ def make_B_mb_model(
 
     ############# Material Parameters #############
 
-    vertices_graded = graded_vertices(L=L, h0=1e-11, r=1.015)
-    #vertices_graded = graded_vertices_n(L=L, h0=1e-11, n=1001)
+    #vertices_graded = graded_vertices(L=L, h0=5e-12, r=1.03)
+    vertices = build_vertices(pb=L/10, L=L, h0=1e-12, r=1.03, n_const=300)
 
-    my_model.mesh = F.Mesh1D(vertices_graded)
+    my_model.mesh = F.Mesh1D(vertices)
 
     # B material parameters from Etienne Hodilles's unpublished TDS study for boron
     b_density = 1.34e29  # atoms/m3
