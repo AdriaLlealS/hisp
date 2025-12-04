@@ -114,7 +114,7 @@ class Model:
 
         # ---------------- r_tol policy ----------------
         # Both B and W (and SS for completeness) use the same numeric value: 1e-10
-        rtol_value = float(1e-9)  # 1e-10
+        rtol_value = float(1e-7)  # 1e-10
 
         #---BC branching---
         if self.BC_type == "New":
@@ -286,7 +286,7 @@ class Model:
             # the stepsize is 1/10 of the duration of the pulse
             if pulse.pulse_type == "FP":
                 if relative_time_within_sub_pulse < pulse.duration_no_waiting:
-                    value = 0.5  # s
+                    value = 1.0  # s
                 else:
                     value = 50.0 #s
             else:
