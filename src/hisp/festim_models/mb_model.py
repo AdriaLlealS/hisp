@@ -87,7 +87,7 @@ def make_W_mb_model(
 
     ############# Material Parameters #############
     
-    vertices_graded = graded_vertices(L=L, h0=1e-12, r=1.03)
+    vertices_graded = graded_vertices(L=L, h0=5e-12, r=1.01)
     #vertices_graded = graded_vertices_n(L=L, h0=1e-11, n=1001)
 
     my_model.mesh = F.Mesh1D(vertices_graded)
@@ -332,7 +332,7 @@ def make_B_mb_model(
 
     ############# Material Parameters #############
 
-    vertices_graded = graded_vertices(L=L, h0=1e-12, r=1.03)
+    vertices_graded = graded_vertices(L=L, h0=1e-12, r=1.01)
     #vertices_graded = graded_vertices_n(L=L, h0=1e-11, n=1001)
 
     my_model.mesh = F.Mesh1D(vertices_graded)
