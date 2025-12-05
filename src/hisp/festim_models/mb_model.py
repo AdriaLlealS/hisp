@@ -68,7 +68,7 @@ def make_W_mb_model(
     L: float,
     custom_rtol: Union[
         float, Callable
-    ] = 1e-8,  # default rtol unless otherwise specified, used for everything but BAKE
+    ] = 1e-9,  # default rtol unless otherwise specified, used for everything but BAKE
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
@@ -92,7 +92,7 @@ def make_W_mb_model(
     
     #vertices_graded = graded_vertices(L=L, h0=5e-12, r=1.05)
 
-    vertices = build_vertices(pb=1e-4, L=L, h0=5e-12, r=1.03, n_const=500)
+    vertices = build_vertices(pb=1e-4, L=L, h0=5e-12, r=1.01, n_const=2000)
 
     my_model.mesh = F.Mesh1D(vertices)
 
@@ -337,7 +337,7 @@ def make_B_mb_model(
     ############# Material Parameters #############
 
     #vertices_graded = graded_vertices(L=L, h0=5e-12, r=1.03)
-    vertices = build_vertices(pb=L/10, L=L, h0=1e-12, r=1.03, n_const=300)
+    vertices = build_vertices(pb=L/10, L=L, h0=1e-13, r=1.01, n_const=1000)
 
     my_model.mesh = F.Mesh1D(vertices)
 
@@ -579,8 +579,10 @@ def make_B_mb_model(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=custom_atol,
-        rtol=custom_rtol,
+        #atol=custom_atol,
+        atol= 1e11,
+        #rtol=custom_rtol,
+        rtol=1e-9,
         max_iterations=100,
         final_time=final_time,
     )
