@@ -54,8 +54,8 @@ class PlasmaDataHandling:
         Returns:
             float: particle flux in part/m2/s
         """
-        # Use bin_number for CSV bins
-        bin_index = bin.bin_number
+        # Use bin_number for CSV bins (convert from 1-based to 0-based index)
+        bin_index = bin.bin_number - 1
         
         if ion:
             flux_header = "Flux_Ion"
