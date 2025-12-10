@@ -28,11 +28,8 @@ import numpy as np
 import sys
 import os
 
-# Add PFC directory to path for local imports
-sys.path.insert(0, '/home/ITER/llealsa/AdriaLlealS/PFC-Tritium-Transport')
-
-# Import CSV bin classes from local PFC
-from csv_bin import CSVBin, CSVReactor, BinConfiguration
+# Import CSV bin classes from hisp package
+from hisp.bin import CSVBin, CSVReactor, BinConfiguration
 
 # NOTE: fixed import name (plasma_data_handling)
 from hisp.plamsa_data_handling import PlasmaDataHandling
