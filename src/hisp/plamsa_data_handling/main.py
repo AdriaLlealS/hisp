@@ -1,11 +1,19 @@
 import numpy as np
 from numpy.typing import NDArray
-from hisp.bin import SubBin, DivBin, FWBin
 from hisp.helpers import periodic_step_function, periodic_pulse_function
 from hisp.scenario import Pulse
 import pandas as pd
 
 from typing import Dict
+
+# Import CSV bin classes
+import sys
+import os
+# Add the PFC workspace to the path to import CSV bin classes
+pfc_path = "/home/ITER/llealsa/AdriaLlealS/PFC-Tritium-Transport"
+if pfc_path not in sys.path:
+    sys.path.append(pfc_path)
+from csv_bin import CSVBin
 
 
 class PlasmaDataHandling:
@@ -32,35 +40,31 @@ class PlasmaDataHandling:
         self._time_to_RISP_data = {}
 
     def get_particle_flux(
-        self, pulse: Pulse, bin: SubBin | DivBin, t_rel: float, ion=True
+        self, pulse: Pulse, bin: CSVBin, t_rel: float, ion=True
     ) -> float:
         """Returns the particle flux for a given pulse type
 
         Args:
             pulse: the pulse object
-            bin: SubBin or DivBin
+            bin: CSVBin object
             t_rel: Relative time (in seconds).
                 t_rel = t - t_pulse_start where t_pulse_start is the start of the pulse in seconds
-            ion (bool, optional): _description_. Defaults to True.
+            ion (bool, optional): Whether to get ion flux or atom flux. Defaults to True.
 
         Returns:
             float: particle flux in part/m2/s
         """
-        if isinstance(bin, SubBin):
-            bin_index = bin.parent_bin_index
-            wetted_frac = bin.wetted_frac  # frac of wettedness for subbin
-        elif isinstance(bin, DivBin):
-            bin_index = bin.index
-            wetted_frac = 1  # all div bins are wetted, so get full flux
-
+        # Use bin_number for CSV bins
+        bin_index = bin.bin_number
+        
         if ion:
             flux_header = "Flux_Ion"
-            flux_frac = (
-                wetted_frac  # for an ion flux, apply the wetted frac for this bin
-            )
-        if not ion:
+            # For ion flux: apply ion_scaling_factor from CSV bin
+            flux_frac = bin.ion_scaling_factor
+        else:
             flux_header = "Flux_Atom"
-            flux_frac = 1  # there is no wettedness for atom fluxes -- every subbin / bin gets all the atom flux
+            # For atom flux: use parsed value directly (no scaling)
+            flux_frac = 1.0
 
         if pulse.pulse_type == "FP":
             flux = self.pulse_type_to_data[pulse.pulse_type][flux_header][bin_index]
@@ -91,7 +95,7 @@ class PlasmaDataHandling:
 
         value = flux * flux_frac
 
-        # check that heat_val is a float
+        # check that value is a float
         assert isinstance(
             value, (float, np.float64)
         ), f"value should be a float, not {type(value)}"
@@ -107,37 +111,34 @@ class PlasmaDataHandling:
             value_off=0,
         )
 
-    def RISP_data(self, bin: SubBin | DivBin, t_rel: float | int) -> pd.DataFrame:
+    def RISP_data(self, bin: CSVBin, t_rel: float | int) -> pd.DataFrame:
         """Returns the correct RISP data file for indicated bin
 
         Args:
-            bin: Subbin or Divbin object
+            bin: CSVBin object
             t_rel: relative time (in seconds).
                 t_rel = t - t_pulse_start where t_pulse_start is the start of the pulse in seconds
 
         Returns:
             data: data from correct file as a numpy array
         """
-        assert isinstance(
-            bin, (SubBin, DivBin)
-        ), f"bin should be a SubBin or DivBin, not {type(bin)}"
-
-        if isinstance(bin, SubBin):
-            bin_index = bin.parent_bin_index
-            div = False
-        elif isinstance(bin, DivBin):
-            bin_index = bin.index
-            div = True
-
-        if div:
-            if bin.inner_bin:
-                folder = self.path_to_RISP_data
-                strike_point = True
-            elif bin.outer_bin:
-                folder = self.path_to_ROSP_data
-                strike_point = True
-            else:
-                strike_point = False  # set up boolean to determine if divbin is on strike point or not
+        # Use bin_number for CSV bins
+        bin_index = bin.bin_number
+        
+        # Determine if it's a divertor based on location
+        div = bin.is_divertor
+        
+        # For CSV bins, determine strike point based on specific modes or locations
+        # This can be refined based on your specific CSV data structure
+        strike_point = False  # Default to False, can be customized later
+        
+        if div and strike_point:
+            # Use RISP or ROSP data paths (this logic can be refined)
+            folder = self.path_to_RISP_data
+        elif div:
+            # For divertor bins without strike point
+            folder = self.path_to_RISP_data
+            strike_point = False
 
         t_rel = int(t_rel)
 
@@ -193,12 +194,12 @@ class PlasmaDataHandling:
         ), f"More than one row for bin {bin_index}. t_rel: {t_rel}, div: {div}, strike_point: {strike_point}"
         return data_for_bin
 
-    def get_heat(self, pulse: Pulse, bin: SubBin | DivBin, t_rel: float) -> float:
+    def get_heat(self, pulse: Pulse, bin: CSVBin, t_rel: float) -> float:
         """Returns the surface heat flux (W/m2) for a given pulse type
 
         Args:
             pulse: the pulse object
-            bin: SubBin or DivBin
+            bin: CSVBin object
             t_rel: Relative time (in seconds).
                 t_rel = t - t_pulse_start where t_pulse_start is the start of the pulse in seconds
 
@@ -208,10 +209,8 @@ class PlasmaDataHandling:
         Returns:
             the surface heat flux in W/m2
         """
-        if isinstance(bin, SubBin):
-            bin_index = bin.parent_bin_index
-        elif isinstance(bin, DivBin):
-            bin_index = bin.index
+        # Use bin_number for CSV bins
+        bin_index = bin.bin_number
 
         if pulse.pulse_type == "RISP":
             t_rel_within_a_single_risp = t_rel % pulse.total_duration
@@ -223,20 +222,19 @@ class PlasmaDataHandling:
 
         if pulse.pulse_type == "FP":
             photon_heat_radiation = 0.11e6  # W/m2
-            heat_total = data["heat_total"][bin_index]+ photon_heat_radiation 
+            heat_total = data["heat_total"][bin_index] + photon_heat_radiation 
             heat_ion = data["heat_ion"][bin_index]
-            if isinstance(bin, SubBin):
-                heat_val = heat_total - heat_ion * (1 - bin.wetted_frac)
-            else:
-                heat_val = heat_total
+            
+            # Use ion_scaling_factor as wetted fraction (same logic as original)
+            heat_val = heat_total - heat_ion * (1 - bin.ion_scaling_factor)
+                
         elif pulse.pulse_type == "RISP":
-            if isinstance(bin, SubBin):
-                photon_radiation_heat = 0.11e6  # W/m2
-                heat_total = data["heat_total"]+photon_radiation_heat 
-                heat_ion = data["heat_ion"]
-                heat_val = heat_total - heat_ion * (1 - bin.wetted_frac)
-            else:
-                heat_val = data["heat_total"]
+            photon_radiation_heat = 0.11e6  # W/m2
+            
+            # For CSV bins - use ion_scaling_factor as wetted fraction
+            heat_total = data["heat_total"] + photon_radiation_heat 
+            heat_ion = data["heat_ion"]
+            heat_val = heat_total - heat_ion * (1 - bin.ion_scaling_factor)
 
             # if heat_val is an empty pandas Series set it at 0.0 (no heat)
             # otherwise take the single value from the series

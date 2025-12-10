@@ -66,6 +66,9 @@ def make_W_mb_model(
     final_time: float,
     folder: str,
     L: float,
+    custom_atol: Union[
+        float, Callable
+    ] = 1e11,  # default atol unless otherwise specified
     custom_rtol: Union[
         float, Callable
     ] = 1e-9,  # default rtol unless otherwise specified, used for everything but BAKE
@@ -287,7 +290,7 @@ def make_W_mb_model(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e11,
+        atol=custom_atol,
         rtol=custom_rtol,
         max_iterations=100,  # the first timestep needs about 66 iterations....
         final_time=final_time,
@@ -579,10 +582,8 @@ def make_B_mb_model(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        #atol=custom_atol,
-        atol= 1e11,
-        #rtol=custom_rtol,
-        rtol=1e-9,
+        atol=custom_atol,
+        rtol=custom_rtol,
         max_iterations=100,
         final_time=final_time,
     )
@@ -785,6 +786,9 @@ def make_W_mb_model_oldBC(
     folder: str,
     L: float,
     occurrences: List[Dict],
+    custom_atol: Union[
+        float, Callable
+    ] = 1e11,  # default atol unless otherwise specified
     custom_rtol: Union[
         float, Callable
     ] = 1e-7,  # default rtol unless otherwise specified, used for everything but BAKE
@@ -1043,7 +1047,7 @@ def make_W_mb_model_oldBC(
 
     ############# Settings #############
     my_model.settings = CustomSettings(
-        atol=1e12,
+        atol=custom_atol,
         rtol=custom_rtol,
         max_iterations=500,  # the first timestep needs about 66 iterations....
         final_time=final_time,
@@ -1362,6 +1366,8 @@ def make_DFW_mb_model_oldBC(
     folder: str,
     L: float,
     occurrences: List[Dict],
+    custom_atol: Union[float, Callable] = 1e5,  # default atol unless otherwise specified
+    custom_rtol: Union[float, Callable] = 1e-10,  # default rtol unless otherwise specified
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the DFW MB scenario.
@@ -1565,9 +1571,9 @@ def make_DFW_mb_model_oldBC(
     quantities["surface_temperature"] = surface_temperature
 
     ############# Settings #############
-    my_model.settings = F.Settings(
-        atol=1e5,
-        rtol=1e-10,
+    my_model.settings = CustomSettings(
+        atol=custom_atol,
+        rtol=custom_rtol,
         max_iterations=30,
         final_time=final_time,
     )
@@ -1708,7 +1714,7 @@ def calculate_temperature_B(heat_flux: float, coolant_temp: float) -> float:
 def make_temperature_function(
     scenario: Scenario,
     plasma_data_handling: PlasmaDataHandling,
-    bin: hisp.bin.SubBin | hisp.bin.DivBin,
+    bin,  # Accept any bin type (SubBin, DivBin, or CSVBin)
     coolant_temp: float,
 ) -> Callable[[NDArray, float], NDArray]:
     """Returns a function that calculates the temperature of the bin based on time and position.
@@ -1764,7 +1770,7 @@ def make_temperature_function(
 def make_particle_flux_function(
     scenario: Scenario,
     plasma_data_handling: PlasmaDataHandling,
-    bin: hisp.bin.SubBin | hisp.bin.DivBin,
+    bin,  # Accept any bin type (SubBin, DivBin, or CSVBin)
     ion: bool,
     tritium: bool,
 ) -> Callable[[float], float]:

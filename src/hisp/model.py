@@ -1,18 +1,42 @@
 
 """
-Simplified HISP Model for PFC runs
-- Pass only two r_tol values: one for B and one for W (both = 10e-10)
-- Cap the adaptive stepsize to a constant 100000.0 seconds for every case
-
-This file is designed to be a drop-in replacement for model(2).txt.
+Simplified HISP Model for PFC runs using CSV-driven bin configuration
+- Uses CSV-specific parameters for each bin (rtol, atol, stepsize limits)
+- Integrates with local CSV bin classes from            if bin.material == "W":
+                return make_W_mb_model_oldBC(
+                    **common_args,
+                    custom_rtol=rtol_value,
+                    folder=f"mb{bin_index}_{bin.mode}_results",
+                )
+            elif bin.material == "B":
+                return make_B_mb_model_oldBC(
+                    **common_args,
+                    custom_rtol=rtol_value,
+                    folder=f"mb{bin_index}_{bin.mode}_results",
+                )
+            elif bin.material == "SS":
+                # Treat SS like W for tolerance purposes
+                return make_DFW_mb_model_oldBC(
+                    **common_args,
+                    # Some DFW paths accept custom_rtol; if not, the kw is ignored safely
+                    custom_rtol=rtol_value,
+                    folder=f"mb{bin_index}_dfw_results",
+                )esigned to be a drop-in replacement for model(2).txt.
 """
 from typing import List, Literal
 import numpy as np
+import sys
+import os
+
+# Add PFC directory to path for local imports
+sys.path.insert(0, '/home/ITER/llealsa/AdriaLlealS/PFC-Tritium-Transport')
+
+# Import CSV bin classes from local PFC
+from csv_bin import CSVBin, CSVReactor, BinConfiguration
 
 # NOTE: fixed import name (plasma_data_handling)
 from hisp.plamsa_data_handling import PlasmaDataHandling
 from hisp.scenario import Scenario
-from hisp.bin import Reactor, SubBin, DivBin
 from hisp.helpers import periodic_step_function
 from hisp.festim_models import (
     make_W_mb_model,
@@ -29,33 +53,36 @@ from hisp.festim_models import (
 
 class Model:
     """
-    HISP main model wrapper used by the PFC driver.
-    Modifications vs. the original model(2).txt:
-      • custom_rtol is a constant numeric value, depending on material
-        - W → 10e-10
-        - B → 10e-10
-        - SS → 10e-10 (for completeness)
-      • stepsize cap is a constant 100000.0 s for all bins and times
+    HISP main model wrapper for CSV-driven bin configuration.
+    Uses CSV-specific parameters for each bin:
+      • rtol: relative tolerance from CSV (applied to all materials)
+      • atol: absolute tolerance from CSV  
+      • FP max stepsize: maximum stepsize during FP pulses from CSV
+      • Max stepsize no FP: maximum stepsize during non-FP pulses from CSV
+      • BC logic: based on plasma facing surface BC from CSV
+        - "Robin - Surf. Rec. + Implantation" → Old BC
+        - "Dirichlet Implantation approx." → New BC
     """
 
     def __init__(
         self,
-        reactor: Reactor,
+        reactor: CSVReactor,
         scenario: Scenario,
         plasma_data_handling: PlasmaDataHandling,
         coolant_temp: float = 343.0,
-        BC_type : Literal["New","Old"] = "New",
     ) -> None:
         self.reactor = reactor
         self.scenario = scenario
         self.plasma_data_handling = plasma_data_handling
         self.coolant_temp = coolant_temp
-        self.BC_type = BC_type
         
+    def get_bin_csv_params(self, bin: CSVBin) -> BinConfiguration:
+        """Get CSV configuration parameters for a specific bin."""
+        return bin.bin_configuration
 
     # ----------------------- public API used by the runner -----------------------
-    def run_bin(self, bin: SubBin | DivBin):
-        """Build and run a FESTIM model for a given bin or subbin."""
+    def run_bin(self, bin: CSVBin):
+        """Build and run a FESTIM model for a given CSV bin."""
         # Build FESTIM model from HISP inputs
         my_model, quantities = self.which_model(bin)
 
@@ -66,23 +93,16 @@ class Model:
         milestones.append(my_model.settings.final_time)
         my_model.settings.stepsize.milestones = milestones
 
-        # Adaptivity knobs (unchanged) these work for New BC
-        #my_model.settings.stepsize.growth_factor = 1.1
-        #my_model.settings.stepsize.cutback_factor = 0.3
-        #my_model.settings.stepsize.target_nb_iterations = 5
-        # Adaptivity knobs (unchanged) trying to make W simulations run with the Old BCs
+        # Adaptivity knobs (same as model.py)
         my_model.settings.stepsize.growth_factor = 1.1
         my_model.settings.stepsize.cutback_factor = 0.3
         my_model.settings.stepsize.target_nb_iterations = 4
 
-        # ---- Constant stepsize cap: 100000 s everywhere ----
-        #my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
-        #if bin.material == "B":
-        #    my_model.settings.stepsize.max_stepsize = self.constant_max_stepsize
-        #else:
-        #    my_model.settings.stepsize.max_stepsize = self.max_stepsize
-
+        # ---- Use unified max_stepsize function ----
         my_model.settings.stepsize.max_stepsize = self.max_stepsize
+
+        # Store current bin for stepsize function access
+        self.current_bin = bin
 
         # Run
         my_model.initialise()
@@ -94,8 +114,8 @@ class Model:
         raise NotImplementedError
 
     # ----------------------- model construction -----------------------
-    def which_model(self, bin: SubBin | DivBin):
-        """Return a (FESTIM model, quantities) pair for the provided bin/subbin."""
+    def which_model(self, bin: CSVBin):
+        """Return a (FESTIM model, quantities) pair for the provided CSV bin."""
         # Temperature & flux functions from HISP + scenario
         temperature_function = make_temperature_function(
             scenario=self.scenario,
@@ -104,20 +124,27 @@ class Model:
             coolant_temp=self.coolant_temp,
         )
 
-         # Pick parent index for folder naming (compatible with existing tooling)
-        if isinstance(bin, DivBin):
-            parent_bin_index = bin.index
-        elif isinstance(bin, SubBin):
-            parent_bin_index = bin.parent_bin_index
-        else:
-            parent_bin_index = getattr(bin, "index", -1)
+        # Use bin_number for folder naming (matches CSV bin number)
+        bin_number = bin.bin_number
 
-        # ---------------- r_tol policy ----------------
-        # Both B and W (and SS for completeness) use the same numeric value: 1e-10
-        rtol_value = float(1e-7)  # 1e-10
+        # ---------------- CSV-specific parameters ----------------
+        bin_config = self.get_bin_csv_params(bin)
+        rtol_value = float(bin_config.rtol)
+        atol_value = float(bin_config.atol) if bin_config.atol != float('inf') else None
+        cu_thickness = float(bin.cu_thickness)
+        
+        print(f"Using CSV parameters for bin {bin_number}: rtol={rtol_value}, atol={atol_value}, Cu thickness={cu_thickness}m")
 
-        #---BC branching---
-        if self.BC_type == "New":
+        # ---------------- BC logic based on plasma facing surface ----------------
+        # Old BC: "Robin - Surf. Rec. + Implantation"
+        # New BC: "Dirichlet Implantation approx."
+        bc_plasma_facing = bin_config.bc_plasma_facing_surface
+        use_old_bc = (bc_plasma_facing == "Robin - Surf. Rec. + Implantation")
+        
+        print(f"BC plasma facing: {bc_plasma_facing}, Using Old BC: {use_old_bc}")
+
+        #---BC branching based on plasma facing surface---
+        if not use_old_bc:  # New BC (Dirichlet Implantation approx.)
 
             d_ion_incident_flux = make_particle_flux_function(
                 scenario=self.scenario,
@@ -161,27 +188,29 @@ class Model:
             if bin.material == "W":
                 return make_W_mb_model(
                     **common_args,
-                    #custom_rtol=rtol_value,
-                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                    custom_atol=atol_value,
+                    custom_rtol=rtol_value,
+                    folder=f"mb{bin_number}_{bin.mode}_results",
                 )
             elif bin.material == "B":
                 return make_B_mb_model(
                     **common_args,
+                    custom_atol=atol_value,
                     custom_rtol=rtol_value,
-                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                    folder=f"mb{bin_number}_{bin.mode}_results",
                 )
             elif bin.material == "SS":
                 # Treat SS like W for tolerance purposes
                 return make_DFW_mb_model(
                     **common_args,
-                    # Some DFW paths accept custom_rtol; if not, the kw is ignored safely
+                    custom_atol=atol_value,
                     custom_rtol=rtol_value,
-                    folder=f"mb{parent_bin_index}_dfw_results",
+                    folder=f"mb{bin_number}_dfw_results",
                 )
             else:
-                raise ValueError(f"Unknown material: {bin.material} for bin {getattr(bin, 'index', '?')}")
+                raise ValueError(f"Unknown material: {bin.material} for bin {bin.bin_number}")
             
-        elif self.BC_type == "Old":
+        else:  # Old BC (Robin - Surf. Rec. + Implantation)
 
             common_args = {
                 "final_time": self.scenario.get_maximum_time() - 1,
@@ -193,30 +222,71 @@ class Model:
             if bin.material == "W":
                 return make_W_mb_model_oldBC(
                     **common_args,
+                    custom_atol=atol_value,
                     custom_rtol=rtol_value,
-                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                    folder=f"mb{bin_number}_{bin.mode}_results",
                 )
             elif bin.material == "B":
                 return make_B_mb_model_oldBC(
                     **common_args,
+                    custom_atol=atol_value,
                     custom_rtol=rtol_value,
-                    folder=f"mb{parent_bin_index}_{getattr(bin, 'mode', 'NA')}_results",
+                    folder=f"mb{bin_number}_{bin.mode}_results",
                 )
             elif bin.material == "SS":
                 # Treat SS like W for tolerance purposes
                 return make_DFW_mb_model_oldBC(
                     **common_args,
-                    # Some DFW paths accept custom_rtol; if not, the kw is ignored safely
+                    custom_atol=atol_value,
                     custom_rtol=rtol_value,
-                    folder=f"mb{parent_bin_index}_dfw_results",
+                    folder=f"mb{bin_number}_dfw_results",
                 )
             else:
-                raise ValueError(f"Unknown material: {bin.material} for bin {getattr(bin, 'index', '?')}")
+                raise ValueError(f"Unknown material: {bin.material} for bin {bin.bin_number}")
 
     # ----------------------- helpers -----------------------
-    def constant_max_stepsize(self, t: float) -> float:
-        """Constant stepsize cap (s) = 100.0 for every t and every case."""
-        return 100.0
+    def max_stepsize(self, t: float) -> float:
+        """Unified stepsize function using CSV bin configuration values."""
+        if not hasattr(self, 'current_bin'):
+            return 100.0  # fallback
+            
+        bin_config = self.get_bin_csv_params(self.current_bin)
+        pulse = self.scenario.get_pulse(t)
+        relative_time = t - self.scenario.get_time_start_current_pulse(t)
+        
+        if pulse.pulse_type == "RISP":
+            relative_time_within_sub_pulse = relative_time % pulse.total_duration
+            # RISP has a special treatment (same as model.py)
+            time_real_risp_starts = 100  # (s) relative time at which the real RISP starts
+            
+            if relative_time_within_sub_pulse < time_real_risp_starts - 11:
+                value = None  # s
+            elif relative_time_within_sub_pulse < time_real_risp_starts + 160:
+                value = float(bin_config.fp_max_stepsize)
+            else:
+                value = float(bin_config.max_stepsize_no_fp)
+        else:
+            relative_time_within_sub_pulse = relative_time % pulse.total_duration
+            
+            # Use CSV-specific stepsize values based on pulse type and timing
+            if pulse.pulse_type == "FP":
+                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
+                    # During FP pulse: use FP max stepsize from bin config
+                    value = float(bin_config.fp_max_stepsize)
+                else:
+                    # Outside FP pulse: use max stepsize no FP from bin config  
+                    value = float(bin_config.max_stepsize_no_fp)
+            else:
+                # For non-FP pulses: use max stepsize no FP from bin config
+                value = float(bin_config.max_stepsize_no_fp)
+        
+        return periodic_step_function(
+            relative_time,
+            period_on=pulse.duration_no_waiting,
+            period_total=pulse.total_duration,
+            value=value,
+            value_off=None,
+        )
 
     def make_milestones(self, initial_stepsize_value: float) -> List[float]:
         """
@@ -260,83 +330,3 @@ class Model:
             current_time = start_of_pulse + pulse.total_duration * pulse.nb_pulses
 
         return sorted(np.unique(milestones).tolist())
-    
-    def max_stepsize(self, t: float) -> float:
-        pulse = self.scenario.get_pulse(t)
-        relative_time = t - self.scenario.get_time_start_current_pulse(t)  # Pulse()
-        if pulse.pulse_type == "RISP":
-            relative_time_within_sub_pulse = relative_time % pulse.total_duration
-            # RISP has a special treatment
-            time_real_risp_starts = (
-                100  # (s) relative time at which the real RISP starts
-            )
-            if relative_time_within_sub_pulse < time_real_risp_starts - 11:
-                value = None  # s
-            elif relative_time_within_sub_pulse < time_real_risp_starts + 160:
-                value = 1e-3  # s
-            # elif relative_time_within_sub_pulse  < time_real_risp_starts + 1:
-            #     value = 0.01  # s
-            # elif relative_time_within_sub_pulse  < time_real_risp_starts + 50:
-            #     value = 0.1  # s
-            else:
-                # NOTE this seems to have an influence on the accuracy of the calculation
-                value = 1  # s
-        else:
-            relative_time_within_sub_pulse = relative_time % pulse.total_duration
-            # the stepsize is 1/10 of the duration of the pulse
-            if pulse.pulse_type == "FP":
-                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
-                    value = 1.0  # s
-                else:
-                    value = 50.0 #s
-            else:
-                value = 50.0
-        return periodic_step_function(
-            relative_time,
-            period_on=pulse.duration_no_waiting,
-            period_total=pulse.total_duration,
-            value=value,
-            value_off=None,
-        )
-    
-
-    def B_stepsize(self, t: float) -> float:
-        pulse = self.scenario.get_pulse(t)
-        relative_time = t - self.scenario.get_time_start_current_pulse(t)  # Pulse()
-        if pulse.pulse_type == "RISP":
-            relative_time_within_sub_pulse = relative_time % pulse.total_duration
-            # RISP has a special treatment
-            time_real_risp_starts = (
-                100  # (s) relative time at which the real RISP starts
-            )
-            if relative_time_within_sub_pulse < time_real_risp_starts - 5:
-                value = None  # s
-            elif relative_time_within_sub_pulse < time_real_risp_starts + 160:
-                value = 1e-4  # s
-            else:
-                # NOTE this seems to have an influence on the accuracy of the calculation
-                value = 1  # s
-        else:
-            relative_time_within_sub_pulse = relative_time % pulse.total_duration
-            # the stepsize is 1/10 of the duration of the pulse
-            if pulse.pulse_type == "FP":
-                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
-                    value = 0.01  # s # usually 0.01
-                else:
-                    value = pulse.duration_no_waiting / 10
-            elif pulse.pulse_type == "BAKE":
-                value = pulse.duration_no_waiting / 10000  # usually /10
-            elif pulse.pulse_type == "FP_D":
-                if relative_time_within_sub_pulse < pulse.duration_no_waiting:
-                    value = 0.001  # s
-                else:
-                    value = pulse.duration_no_waiting / 10
-            else:
-                value = pulse.duration_no_waiting / 100  # usually /100
-        return periodic_step_function(
-            relative_time,
-            period_on=pulse.duration_no_waiting,
-            period_total=pulse.total_duration,
-            value=value,
-            value_off=None,
-        )
