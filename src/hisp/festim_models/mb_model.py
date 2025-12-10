@@ -791,7 +791,7 @@ def make_W_mb_model_oldBC(
     ] = 1e11,  # default atol unless otherwise specified
     custom_rtol: Union[
         float, Callable
-    ] = 1e-7,  # default rtol unless otherwise specified, used for everything but BAKE
+    ] = 1e-7,  # default rtol unless otherwise specified, used for everything
     exports=False,
 ) -> Tuple[CustomProblem, Dict[str, F.TotalVolume]]:
     """Create a FESTIM model for the W MB scenario.
@@ -810,7 +810,7 @@ def make_W_mb_model_oldBC(
     ############# Material Parameters #############
     
     #vertices_graded = graded_vertices(L=L, h0=1e-10, r=1.01)
-    vertices = build_vertices(pb=1e-4, L=L, h0=1e-11, r=1.01, n_const=1000)
+    vertices = build_vertices(pb=1e-4, L=L, h0=1e-11, r=1.02, n_const=500)
     my_model.mesh = F.Mesh1D(vertices)
 
     # W material parameters
@@ -1091,7 +1091,7 @@ def make_B_mb_model_oldBC(
     ############# Material Parameters #############
 
     #vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.008)
-    vertices = build_vertices(pb=1e-7, L=L, h0=1e-13, r=1.01, n_const=1000)
+    vertices = build_vertices(pb=1e-7, L=L, h0=1e-13, r=1.02, n_const=500)
     my_model.mesh = F.Mesh1D(vertices)
 
     # B material parameters from Etienne Hodilles's unpublished TDS study for boron
