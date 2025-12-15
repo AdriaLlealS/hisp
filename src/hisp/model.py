@@ -29,10 +29,10 @@ import sys
 import os
 
 # Import CSV bin classes from hisp package
-from hisp.bin import CSVBin, CSVReactor, BinConfiguration
+from hisp.bin import Bin, Reactor, BinConfiguration
 
 # NOTE: fixed import name (plasma_data_handling)
-from hisp.plamsa_data_handling import PlasmaDataHandling
+from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.scenario import Scenario
 from hisp.helpers import periodic_step_function
 from hisp.festim_models import (
@@ -63,7 +63,7 @@ class Model:
 
     def __init__(
         self,
-        reactor: CSVReactor,
+        reactor: Reactor,
         scenario: Scenario,
         plasma_data_handling: PlasmaDataHandling,
         coolant_temp: float = 343.0,
@@ -73,12 +73,12 @@ class Model:
         self.plasma_data_handling = plasma_data_handling
         self.coolant_temp = coolant_temp
         
-    def get_bin_csv_params(self, bin: CSVBin) -> BinConfiguration:
+    def get_bin_csv_params(self, bin: Bin) -> BinConfiguration:
         """Get CSV configuration parameters for a specific bin."""
         return bin.bin_configuration
 
     # ----------------------- public API used by the runner -----------------------
-    def run_bin(self, bin: CSVBin):
+    def run_bin(self, bin: Bin):
         """Build and run a FESTIM model for a given CSV bin."""
         # Build FESTIM model from HISP inputs
         my_model, quantities = self.which_model(bin)
@@ -111,7 +111,7 @@ class Model:
         raise NotImplementedError
 
     # ----------------------- model construction -----------------------
-    def which_model(self, bin: CSVBin):
+    def which_model(self, bin: Bin):
         """Return a (FESTIM model, quantities) pair for the provided CSV bin."""
         # Temperature & flux functions from HISP + scenario
         temperature_function = make_temperature_function(

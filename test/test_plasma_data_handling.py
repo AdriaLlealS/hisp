@@ -1,5 +1,5 @@
 from hisp.scenario import Scenario, Pulse
-from hisp.plamsa_data_handling import PlasmaDataHandling
+from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.bin import DivBin
 
 import numpy as np

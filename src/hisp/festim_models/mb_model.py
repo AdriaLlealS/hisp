@@ -9,7 +9,7 @@ from hisp.helpers import (
     XDMFExportEveryDt
 )
 from hisp.scenario import Scenario
-from hisp.plamsa_data_handling import PlasmaDataHandling
+from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.settings import CustomSettings
 import hisp.bin
 from ufl import conditional, lt, ge, And

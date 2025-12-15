@@ -2,7 +2,7 @@ import json
 import pandas as pd
 from make_iter_bins import FW_bins, Div_bins, my_reactor
 
-from hisp.plamsa_data_handling import PlasmaDataHandling
+from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.scenario import Scenario, Pulse
 from hisp.model import Model
 
