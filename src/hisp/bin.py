@@ -59,9 +59,44 @@ except ImportError as e:
         f"Tried: {tried}. {hint} Error: {e}"
     )
 
+# Also import the Material class from the PFC-Tritium-Transport package so
+# HISP code can reference materials via `hisp.bin.Material` in the same way
+# it references the CSV-driven Bin classes above.
+try:
+    from materials import Material
+except ImportError as e:
+    tried = ", ".join(str(p) for p in unique_candidates)
+    hint = "Set env var PFC_TT_PATH to your PFC-Tritium-Transport folder."
+    raise ImportError(
+        "Could not import Material from PFC-Tritium-Transport. "
+        f"Tried: {tried}. {hint} Error: {e}"
+    )
+
 # For backwards compatibility, re-export the imported classes
 # Re-export the new names
-__all__ = ['BinConfiguration', 'Bin', 'BinCollection', 'Reactor']
+__all__ = ['BinConfiguration', 'Bin', 'BinCollection', 'Reactor', 'Material']
 
 # These classes are imported from PFC-Tritium-Transport/csv_bin.py
 # =============================================================================
+
+# Monkeypatch: make `Bin.material` return the material name string for
+# backward-compatible HISP code that expects `bin.material` to be a name.
+# The underlying Material object (if any) is preserved on `_material` for access when needed.
+def _hisp_bin_material_get(self):
+    # prefer an explicitly stored private material object
+    m = getattr(self, '_material', None)
+    if m is None:
+        # if not present, try to read a pre-existing attribute (for safety)
+        m = getattr(self, 'material', None)
+    # If we have a Material-like object, return its `name` attribute
+    if hasattr(m, 'name'):
+        return m.name
+    # If it's already a string or None, return as-is
+    return m
+
+def _hisp_bin_material_set(self, value):
+    # Preserve the original value on a private attribute for advanced use
+    object.__setattr__(self, '_material', value)
+
+# Attach the property to the imported Bin class
+Bin.material = property(_hisp_bin_material_get, _hisp_bin_material_set)

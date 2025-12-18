@@ -47,6 +47,11 @@ from hisp.festim_models import (
     compute_flux_values,
 )
 
+import festim as F
+from hisp.h_transport_class import CustomProblem
+from hisp.settings import CustomSettings
+from hisp.helpers import Stepsize, XDMFExportEveryDt
+
 
 class Model:
     """
@@ -241,7 +246,198 @@ class Model:
             else:
                 raise ValueError(f"Unknown material: {bin.material} for bin {bin.bin_number}")
 
-    # ----------------------- helpers -----------------------
+    # ----------------------- unified builder -----------------------
+    def mb_model_new(
+        self,
+        bin: Bin,
+        material: dict,
+        temperature: callable,
+        final_time: float,
+        folder: str,
+        L: float,
+        custom_atol: float | None = None,
+        custom_rtol: float | None = None,
+        exports: bool = False,
+    ):
+        """Unified MB model builder that consumes a `bin` and a `material` dict.
+
+        Expected `material` dict keys (recommended):
+          - name: material name (str)
+          - Mat_density: float (atoms/m3)
+          - D0: float (m2/s)
+          - E_D: float (eV)
+          - N_traps: int
+          - traps: list of dicts with keys: Trap_density, k_0, E_k, p_0, E_p
+
+        The function builds species, trap implicit species and reactions from
+        the provided material dictionary. Boundary conditions (old/new)
+        are both available and the one attached depends on the bin
+        configuration `bin.bin_configuration.bc_plasma_facing_surface`.
+        """
+        my_model = CustomProblem()
+
+        # Mesh
+        try:
+            n_points = max(50, int(min(1000, max(50, L / 1e-9))))
+        except Exception:
+            n_points = 200
+        vertices = np.linspace(0.0, L, n_points)
+        my_model.mesh = F.Mesh1D(vertices)
+
+        # Material properties
+        mat_name = str(material.get("name", "material")).lower()
+        mat_density = float(material.get("Mat_density", material.get("mat_density", 1.0)))
+        D_0 = float(material.get("D0", material.get("D_0", 1.0)))
+        E_D = float(material.get("E_D", material.get("E_D_eV", 0.5)))
+
+        festim_mat = F.Material(D_0=D_0, E_D=E_D, name=mat_name)
+        vol = F.VolumeSubdomain1D(id=1, borders=[0, L], material=festim_mat)
+        inlet = F.SurfaceSubdomain1D(id=1, x=0)
+        outlet = F.SurfaceSubdomain1D(id=2, x=L)
+        my_model.subdomains = [vol, inlet, outlet]
+
+        # Species
+        mobile_D = F.Species("D")
+        mobile_T = F.Species("T")
+
+        # Traps
+        traps_list = material.get("traps")
+        N_traps = int(material.get("N_traps", material.get("n_traps", 0)))
+        trap_species = []
+        implicit_traps = []
+
+        # If traps list not provided, try to construct from repeated keys in dict
+        if traps_list is None:
+            traps_list = []
+            for i in range(1, N_traps + 1):
+                key_d = f"Trap_density_{i}"
+                if key_d in material:
+                    traps_list.append({
+                        "Trap_density": material.get(key_d),
+                        "k_0": material.get(f"k_0_{i}", None),
+                        "E_k": material.get(f"E_k_{i}", None),
+                        "p_0": material.get(f"p_0_{i}", None),
+                        "E_p": material.get(f"E_p_{i}", None),
+                    })
+                else:
+                    break
+
+        # create trap species and implicit traps
+        for idx, t in enumerate(traps_list[:N_traps] if traps_list else range(N_traps)):
+            if isinstance(t, dict):
+                n_val = float(t.get("Trap_density", t.get("n", mat_density * 1e-4)))
+                k0 = t.get("k_0", None)
+                E_k = t.get("E_k", None)
+                p0 = t.get("p_0", None)
+                E_p = t.get("E_p", None)
+            else:
+                n_val = float(material.get("Trap_density", mat_density * 1e-4))
+                k0 = None
+                E_k = None
+                p0 = None
+                E_p = None
+
+            sp_d = F.Species(f"trap{idx+1}_D", mobile=False)
+            sp_t = F.Species(f"trap{idx+1}_T", mobile=False)
+            trap_species.extend([sp_d, sp_t])
+
+            impl = F.ImplicitSpecies(n=n_val, others=[sp_t, sp_d], name=f"empty_trap{idx+1}")
+            implicit_traps.append(impl)
+
+        my_model.species = [mobile_D, mobile_T] + trap_species
+
+        # Reactions
+        interstitial_distance = float(material.get("interstitial_distance", 1.117e-10))
+        interstitial_sites_per_atom = int(material.get("interstitial_sites_per_atom", 6))
+
+        reactions = []
+        for idx, impl in enumerate(implicit_traps):
+            trap_params = traps_list[idx] if isinstance(traps_list, list) and idx < len(traps_list) else {}
+            k_0_val = trap_params.get("k_0")
+            if k_0_val is None:
+                k_0_val = D_0 / (interstitial_distance**2 * interstitial_sites_per_atom * mat_density)
+            E_k_val = trap_params.get("E_k", E_D)
+            p_0_val = trap_params.get("p_0", 1e13)
+            E_p_val = trap_params.get("E_p", 1.0)
+
+            trap_d = F.Species(f"trap{idx+1}_D", mobile=False)
+            trap_t = F.Species(f"trap{idx+1}_T", mobile=False)
+
+            reactions.append(
+                F.Reaction(
+                    k_0=k_0_val,
+                    E_k=E_k_val,
+                    p_0=p_0_val,
+                    E_p=E_p_val,
+                    volume=vol,
+                    reactant=[mobile_D, impl],
+                    product=trap_d,
+                )
+            )
+            reactions.append(
+                F.Reaction(
+                    k_0=k_0_val,
+                    E_k=E_k_val,
+                    p_0=p_0_val,
+                    E_p=E_p_val,
+                    volume=vol,
+                    reactant=[mobile_T, impl],
+                    product=trap_t,
+                )
+            )
+
+        my_model.reactions = reactions
+
+        # Temperature
+        my_model.temperature = temperature
+
+        # Boundary conditions selection
+        bin_config = self.get_bin_csv_params(bin)
+        bc_choice = getattr(bin_config, "bc_plasma_facing_surface", None)
+        use_old_bc = (bc_choice == "Robin - Surf. Rec. + Implantation")
+
+        if use_old_bc:
+            occurrences = compute_flux_values(self.scenario, self.plasma_data_handling, bin)
+            deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
+            c_sD = make_surface_concentration_time_function_J(temperature, lambda t: float(deuterium_ion_flux(t) + deuterium_atom_flux(t)), D_0, E_D, 3e-9, surface_x=0.0)
+            c_sT = make_surface_concentration_time_function_J(temperature, lambda t: float(tritium_ion_flux(t) + tritium_atom_flux(t)), D_0, E_D, 3e-9, surface_x=0.0)
+        else:
+            d_ion = make_particle_flux_function(self.scenario, self.plasma_data_handling, bin, ion=True, tritium=False)
+            t_ion = make_particle_flux_function(self.scenario, self.plasma_data_handling, bin, ion=True, tritium=True)
+            d_atom = make_particle_flux_function(self.scenario, self.plasma_data_handling, bin, ion=False, tritium=False)
+            t_atom = make_particle_flux_function(self.scenario, self.plasma_data_handling, bin, ion=False, tritium=True)
+            Gamma_D_total = lambda t: float(d_ion(t) + d_atom(t))
+            Gamma_T_total = lambda t: float(t_ion(t) + t_atom(t))
+            c_sD = make_surface_concentration_time_function_J(temperature, Gamma_D_total, D_0, E_D, 3e-9, surface_x=0.0)
+            c_sT = make_surface_concentration_time_function_J(temperature, Gamma_T_total, D_0, E_D, 3e-9, surface_x=0.0)
+
+        bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
+        bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
+        my_model.boundary_conditions = [bc_D, bc_T]
+
+        # Exports and quantities
+        quantities = {}
+        my_model.exports = []
+        for species in my_model.species:
+            q = F.TotalVolume(field=species, volume=vol)
+            my_model.exports.append(q)
+            quantities[species.name] = q
+            if species.mobile:
+                flux = F.SurfaceFlux(field=species, surface=inlet)
+                my_model.exports.append(flux)
+                quantities[species.name + "_surface_flux"] = flux
+
+        # Settings
+        my_model.settings = CustomSettings(
+            atol=custom_atol if custom_atol is not None else 1e11,
+            rtol=custom_rtol if custom_rtol is not None else 1e-9,
+            max_iterations=100,
+            final_time=final_time,
+        )
+        my_model.settings.stepsize = Stepsize(initial_value=1e-3)
+        my_model._element_for_traps = "CG"
+
+        return my_model, quantities
     def max_stepsize(self, t: float) -> float:
         """Unified stepsize function using CSV bin configuration values."""
         if not hasattr(self, 'current_bin'):
