@@ -114,8 +114,8 @@ class PlasmaDataHandling:
         Returns:
             data: data from correct file as a numpy array
         """
-        # Use bin_number for CSV bins
-        bin_index = bin.bin_number
+        # Use zero-based bin index for CSV bins (match get_particle_flux)
+        bin_index = bin.bin_number - 1
         
         # Determine if it's a divertor based on location
         div = bin.is_divertor
@@ -202,7 +202,7 @@ class PlasmaDataHandling:
             the surface heat flux in W/m2
         """
         # Use bin_number for CSV bins
-        bin_index = bin.bin_number
+        bin_index = bin.bin_number-1
 
         if pulse.pulse_type == "RISP":
             t_rel_within_a_single_risp = t_rel % pulse.total_duration
