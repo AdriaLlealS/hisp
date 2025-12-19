@@ -54,6 +54,81 @@ def build_vertices(pb, L, h0, r, n_const):
     # Combine
     return np.array(xs + const_part.tolist())
 
+def build_vertices_2(L: float) -> np.ndarray:
+    """
+    Return an np.ndarray of vertices on [0, L] with:
+    - If L >= 5e-5:
+        * Geometric spacing with h0=1e-10, r=1.1 until step size reaches dL=1e-5.
+        * Then constant spacing dL=1e-5 up to L.
+        * Last vertex is exactly L. No duplicates.
+    - If L < 5e-5:
+        * Geometric spacing with h0=1e-10, r=1.015 until reaching L.
+        * Last vertex is exactly L. No duplicates.
+    """
+    if L <= 0.0:
+        raise ValueError("L must be positive.")
+
+    xs = [0.0]
+    eps = 1e-18  # tolerance to avoid duplicates from floating-point rounding
+
+    if L >= 5e-5:
+        # --- GRADED REGION ---
+        h = 1e-10
+        r = 1.1
+        dL_const = 1e-5
+
+        while True:
+            next_x = xs[-1] + h
+
+            # If next graded value reaches/exceeds L -> finish at L
+            if next_x >= L - eps:
+                if L - xs[-1] > eps:
+                    xs.append(L)
+                break
+
+            if h < dL_const - eps:
+                xs.append(next_x)
+                h *= r
+            else:
+                # Step size has reached dL_const: switch to constant spacing
+                break
+
+        # --- CONSTANT REGION ---
+        if xs[-1] < L - eps:
+            start = xs[-1] + dL_const
+
+            # Add points spaced by dL_const until just before L
+            uniform = np.arange(start, L - eps, dL_const)
+            xs.extend(uniform.tolist())
+
+            # Add exact L once
+            if xs[-1] < L - eps:
+                xs.append(L)
+
+    else:
+        # --- PURE GRADED REGION ---
+        h = 1e-10
+        r = 1.015
+
+        while True:
+            next_x = xs[-1] + h
+
+            if next_x < L - eps:
+                xs.append(next_x)
+                h *= r
+            else:
+                if L - xs[-1] > eps:
+                    xs.append(L)
+                break
+
+    # --- ENSURE NO DUPLICATES ---
+    out = [xs[0]]
+    for v in xs[1:]:
+        if abs(v - out[-1]) > eps:
+            out.append(v)
+
+    return np.array(out)
+
 
 
 
@@ -810,7 +885,8 @@ def make_W_mb_model_oldBC(
     ############# Material Parameters #############
     
     #vertices_graded = graded_vertices(L=L, h0=1e-10, r=1.01)
-    vertices = build_vertices(pb=1e-4, L=L, h0=1e-11, r=1.02, n_const=500)
+    #vertices = build_vertices(pb=1e-4, L=L, h0=1e-11, r=1.02, n_const=500)
+    vertices = build_vertices_2(L=L)
     my_model.mesh = F.Mesh1D(vertices)
 
     # W material parameters
@@ -1091,7 +1167,8 @@ def make_B_mb_model_oldBC(
     ############# Material Parameters #############
 
     #vertices_graded = graded_vertices(L=L, h0=L/12e9, r=1.008)
-    vertices = build_vertices(pb=1e-7, L=L, h0=1e-13, r=1.02, n_const=500)
+    #vertices = build_vertices(pb=1e-7, L=L, h0=1e-13, r=1.02, n_const=500)
+    vertices = build_vertices_2(L)
     my_model.mesh = F.Mesh1D(vertices)
 
     # B material parameters from Etienne Hodilles's unpublished TDS study for boron
