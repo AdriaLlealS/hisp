@@ -81,5 +81,3 @@ __all__ = ['BinConfiguration', 'Bin', 'BinCollection', 'Reactor', 'Material']
 
 # NOTE: Monkeypatch removed - new code expects bin.material to be a Material object
 # Legacy code that expects bin.material to be a string should use bin.material_name instead
-# Attach the property to the imported Bin class
-Bin.material = property(_hisp_bin_material_get, _hisp_bin_material_set)
