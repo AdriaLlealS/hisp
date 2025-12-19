@@ -95,7 +95,7 @@ class NewModel:
         print(f"Initializing FESTIM model...")
         my_model.initialise()
         
-        print(f"Running simulation (final_time={self.scenario.total_time:.0f} s)...")
+        print(f"Running simulation (final_time={self.scenario.get_maximum_time():.0f} s)...")
         my_model.run()
         
         print(f"✓ Simulation complete for bin {bin.bin_number}")

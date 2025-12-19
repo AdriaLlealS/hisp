@@ -446,7 +446,7 @@ def make_model_with_scenario(
         tritium_ion_flux=tritium_ion_flux,
         deuterium_atom_flux=deuterium_atom_flux,
         tritium_atom_flux=tritium_atom_flux,
-        final_time=scenario.total_time,
+        final_time=scenario.get_maximum_time(),
         folder=f"results_bin_{bin.bin_number}",
         exports=exports,
     )
