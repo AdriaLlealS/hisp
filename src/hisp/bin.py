@@ -79,24 +79,7 @@ __all__ = ['BinConfiguration', 'Bin', 'BinCollection', 'Reactor', 'Material']
 # These classes are imported from PFC-Tritium-Transport/csv_bin.py
 # =============================================================================
 
-# Monkeypatch: make `Bin.material` return the material name string for
-# backward-compatible HISP code that expects `bin.material` to be a name.
-# The underlying Material object (if any) is preserved on `_material` for access when needed.
-def _hisp_bin_material_get(self):
-    # prefer an explicitly stored private material object
-    m = getattr(self, '_material', None)
-    if m is None:
-        # if not present, try to read a pre-existing attribute (for safety)
-        m = getattr(self, 'material', None)
-    # If we have a Material-like object, return its `name` attribute
-    if hasattr(m, 'name'):
-        return m.name
-    # If it's already a string or None, return as-is
-    return m
-
-def _hisp_bin_material_set(self, value):
-    # Preserve the original value on a private attribute for advanced use
-    object.__setattr__(self, '_material', value)
-
+# NOTE: Monkeypatch removed - new code expects bin.material to be a Material object
+# Legacy code that expects bin.material to be a string should use bin.material_name instead
 # Attach the property to the imported Bin class
 Bin.material = property(_hisp_bin_material_get, _hisp_bin_material_set)
