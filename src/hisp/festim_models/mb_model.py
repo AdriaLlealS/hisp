@@ -1807,7 +1807,11 @@ def make_temperature_function(
     """
 
     def T_function(x: NDArray, t: float) -> NDArray:
-        assert isinstance(t, float), f"t should be a float, not {type(t)}"
+        # Handle FESTIM 2.0 passing dolfinx.Constant instead of float
+        if hasattr(t, 'value'):
+            t = float(t.value)
+        elif not isinstance(t, (float, int)):
+            raise TypeError(f"t should be a float or have a .value attribute, got {type(t)}")
 
         # get the pulse and time relative to the start of the pulse
         pulse = scenario.get_pulse(t)
@@ -1865,7 +1869,11 @@ def make_particle_flux_function(
     """
 
     def particle_flux_function(t: float) -> float:
-        assert isinstance(t, float), f"t should be a float, not {type(t)}"
+        # Handle FESTIM 2.0 passing dolfinx.Constant instead of float
+        if hasattr(t, 'value'):
+            t = float(t.value)
+        elif not isinstance(t, (float, int)):
+            raise TypeError(f"t should be a float or have a .value attribute, got {type(t)}")
 
         # get the pulse and time relative to the start of the pulse
         pulse = scenario.get_pulse(t)
