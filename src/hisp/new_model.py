@@ -115,9 +115,9 @@ class NewModel:
         milestones = []
         current_time = 0.0
         
-        for pulse in self.scenario.pulse_schedule:
+        for pulse in self.scenario.pulses:
             pulse_start = current_time
-            pulse_end = current_time + pulse.duration
+            pulse_end = current_time + pulse.total_duration
             
             # Add milestone at pulse start
             if pulse_start > 0:
@@ -127,16 +127,16 @@ class NewModel:
             if pulse.pulse_type in ["FP", "ICWC", "GDC"]:
                 # For plasma pulses, add more frequent milestones
                 max_step = bin_config.fp_max_stepsize
-                n_steps = int(np.ceil(pulse.duration / max_step))
+                n_steps = int(np.ceil(pulse.total_duration / max_step))
                 for i in range(1, n_steps):
-                    t = pulse_start + i * pulse.duration / n_steps
+                    t = pulse_start + i * pulse.total_duration / n_steps
                     milestones.append(t)
             else:
                 # For non-plasma pulses, use larger steps
                 max_step = bin_config.max_stepsize_no_fp
-                n_steps = int(np.ceil(pulse.duration / max_step))
+                n_steps = int(np.ceil(pulse.total_duration / max_step))
                 for i in range(1, n_steps):
-                    t = pulse_start + i * pulse.duration / n_steps
+                    t = pulse_start + i * pulse.total_duration / n_steps
                     milestones.append(t)
             
             # Add milestone at pulse end
