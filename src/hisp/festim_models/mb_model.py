@@ -1831,13 +1831,15 @@ def make_temperature_function(
             heat_flux = plasma_data_handling.get_heat(
                 pulse, bin, relative_time_within_pulse
             )
+            # Handle both string materials and Material objects
+            material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
             if (
-                bin.material == "W" or bin.material == "SS"
+                material_name == "W" or material_name == "SS"
             ):  # FIXME: update ss temp when gven data:
                 value = calculate_temperature_W(
                     x[0], heat_flux, coolant_temp, bin.thickness, bin.copper_thickness
                 )
-            elif bin.material == "B":
+            elif material_name == "B":
                 T_value = calculate_temperature_B(heat_flux, coolant_temp)
                 value = np.full_like(x[0], T_value)
             else:

@@ -187,21 +187,24 @@ class Model:
                 "L": bin.thickness,
             }
 
-            if bin.material == "W":
+            # Handle both string materials and Material objects
+            material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
+            
+            if material_name == "W":
                 return make_W_mb_model(
                     **common_args,
                     custom_atol=atol_value,
                     custom_rtol=rtol_value,
                     folder=f"mb{bin_number}_{bin.mode}_results",
                 )
-            elif bin.material == "B":
+            elif material_name == "B":
                 return make_B_mb_model(
                     **common_args,
                     custom_atol=atol_value,
                     custom_rtol=rtol_value,
                     folder=f"mb{bin_number}_{bin.mode}_results",
                 )
-            elif bin.material == "SS":
+            elif material_name == "SS":
                 # Treat SS like W for tolerance purposes
                 return make_DFW_mb_model(
                     **common_args,
@@ -221,21 +224,24 @@ class Model:
                 "occurrences": compute_flux_values(self.scenario, self.plasma_data_handling, bin),
             }
     
-            if bin.material == "W":
+            # Handle both string materials and Material objects
+            material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
+            
+            if material_name == "W":
                 return make_W_mb_model_oldBC(
                     **common_args,
                     custom_atol=atol_value,
                     custom_rtol=rtol_value,
                     folder=f"mb{bin_number}_{bin.mode}_results",
                 )
-            elif bin.material == "B":
+            elif material_name == "B":
                 return make_B_mb_model_oldBC(
                     **common_args,
                     custom_atol=atol_value,
                     custom_rtol=rtol_value,
                     folder=f"mb{bin_number}_{bin.mode}_results",
                 )
-            elif bin.material == "SS":
+            elif material_name == "SS":
                 # Treat SS like W for tolerance purposes
                 return make_DFW_mb_model_oldBC(
                     **common_args,
