@@ -519,9 +519,11 @@ def make_model_with_scenario(
     from hisp.festim_models.mb_model import (
         make_temperature_function,
         make_particle_flux_function,
+        compute_flux_values,
+        build_ufl_flux_expression,
     )
     
-    # Create temperature and flux functions from scenario
+    # Create temperature function from scenario
     temperature_function = make_temperature_function(
         scenario=scenario,
         plasma_data_handling=plasma_data_handling,
@@ -529,37 +531,47 @@ def make_model_with_scenario(
         coolant_temp=coolant_temp,
     )
     
-    deuterium_ion_flux = make_particle_flux_function(
-        scenario=scenario,
-        plasma_data_handling=plasma_data_handling,
-        bin=bin,
-        ion=True,
-        tritium=False,
-    )
+    # Check BC type to decide which flux function type to use
+    bc_plasma_facing = bin.bin_configuration.bc_plasma_facing_surface
     
-    tritium_ion_flux = make_particle_flux_function(
-        scenario=scenario,
-        plasma_data_handling=plasma_data_handling,
-        bin=bin,
-        ion=True,
-        tritium=True,
-    )
-    
-    deuterium_atom_flux = make_particle_flux_function(
-        scenario=scenario,
-        plasma_data_handling=plasma_data_handling,
-        bin=bin,
-        ion=False,
-        tritium=False,
-    )
-    
-    tritium_atom_flux = make_particle_flux_function(
-        scenario=scenario,
-        plasma_data_handling=plasma_data_handling,
-        bin=bin,
-        ion=False,
-        tritium=True,
-    )
+    # For implantation BCs, use UFL flux expressions (required for ParticleSource)
+    if bc_plasma_facing in ("Robin - Surf. Rec. + Implantation", "Dirichlet - 0 concentration + Implantation"):
+        # Use UFL flux expressions for ParticleSource compatibility
+        occurrences = compute_flux_values(scenario, plasma_data_handling, bin)
+        deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
+    else:
+        # For analytical Dirichlet BC (no volumetric sources), plain callables are fine
+        deuterium_ion_flux = make_particle_flux_function(
+            scenario=scenario,
+            plasma_data_handling=plasma_data_handling,
+            bin=bin,
+            ion=True,
+            tritium=False,
+        )
+        
+        tritium_ion_flux = make_particle_flux_function(
+            scenario=scenario,
+            plasma_data_handling=plasma_data_handling,
+            bin=bin,
+            ion=True,
+            tritium=True,
+        )
+        
+        deuterium_atom_flux = make_particle_flux_function(
+            scenario=scenario,
+            plasma_data_handling=plasma_data_handling,
+            bin=bin,
+            ion=False,
+            tritium=False,
+        )
+        
+        tritium_atom_flux = make_particle_flux_function(
+            scenario=scenario,
+            plasma_data_handling=plasma_data_handling,
+            bin=bin,
+            ion=False,
+            tritium=True,
+        )
     
     # Create model
     return make_dynamic_mb_model(
