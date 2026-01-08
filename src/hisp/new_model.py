@@ -90,6 +90,7 @@ class NewModel:
         # Adaptivity settings
         my_model.settings.stepsize.growth_factor = 1.1
         my_model.settings.stepsize.cutback_factor = 0.3
+        my_model.settings.stepsize.target_nb_iterations = 4
         
         # Initialize and run
         print(f"Initializing FESTIM model...")
