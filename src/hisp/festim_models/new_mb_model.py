@@ -147,10 +147,14 @@ def create_species_and_traps(
     trap_list = []
     
     n_traps = material.N_traps
+    print(f"\n=== DEBUG: Creating traps for {material.name} with N_traps={n_traps} ===")
     for i in range(1, n_traps + 1):
         # Get trap parameters
         trap_params = material.traps[i - 1]
         trap_density = trap_params.Trap_density
+        
+        # Debug output
+        print(f"Trap {i}: Trap_density={trap_density}, k_0={trap_params.k_0}, E_k={trap_params.E_k}, p_0={trap_params.p_0}, E_p={trap_params.E_p}")
         
         # Create trapped species for D and T in this trap
         trap_D = F.Species(f"trap{i}_D", mobile=False)
@@ -171,18 +175,23 @@ def create_species_and_traps(
             'empty_trap': empty_trap,
             'params': trap_params,
         })
+    print("=== DEBUG: Trap creation complete ===\n")
     
     # Create reactions
     reactions_list = []
     
+    print(f"\n=== DEBUG: Creating reactions ===")
     for trap_info in trap_list:
         trap_params = trap_info['params']
+        trap_idx = trap_info['index']
         
         # Use trap-specific parameters from CSV (all required)
         k_0 = trap_params.k_0
         E_k = trap_params.E_k
         p_0 = trap_params.p_0
         E_p = trap_params.E_p
+        
+        print(f"Trap {trap_idx} reactions: k_0={k_0}, E_k={E_k}, p_0={p_0}, E_p={E_p}")
         
         # Reaction for D in this trap
         reactions_list.append(
@@ -209,6 +218,7 @@ def create_species_and_traps(
                 product=trap_info['trap_T'],
             )
         )
+    print("=== DEBUG: Reaction creation complete ===\n")
     
     return species_list, reactions_list
 
