@@ -516,7 +516,7 @@ def make_model_with_scenario(
     Returns:
         Tuple of (festim_model, quantities_dict)
     """
-    from hisp.helpers import (
+    from hisp.festim_models.mb_model import (
         make_temperature_function,
         make_particle_flux_function,
         compute_flux_values,
