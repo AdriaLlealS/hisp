@@ -298,6 +298,10 @@ def make_dynamic_mb_model(
     bc_plasma_facing = bin.bin_configuration.bc_plasma_facing_surface
     bc_rear = bin.bin_configuration.bc_rear_surface
 
+    # Get species objects once for use in all BC branches
+    mobile_D = next(s for s in my_model.species if s.name == "D")
+    mobile_T = next(s for s in my_model.species if s.name == "T")
+
     boundary_conditions = []
 
     # --- Plasma-facing surface (inlet) BC choices ---
@@ -310,10 +314,10 @@ def make_dynamic_mb_model(
         distribution = gaussian_implantation_ufl(implantation_range, width, thickness=L)
 
         my_model.sources = [
-            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
-            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
-            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
-            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
+            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
+            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
         ]
 
         # --- Surface recombination (Robin-like) ---
@@ -322,10 +326,6 @@ def make_dynamic_mb_model(
         E_kr = getattr(material, "E_R", -2.0)
         k_d0 = getattr(material, "k_d0", 0.0)
         E_kd = getattr(material, "E_kd", 0.0)
-
-        # Get species objects
-        mobile_D = next(s for s in my_model.species if s.name == "D")
-        mobile_T = next(s for s in my_model.species if s.name == "T")
 
         surface_reaction_dd = F.SurfaceReactionBC(
             reactant=[mobile_D, mobile_D],
@@ -368,10 +368,10 @@ def make_dynamic_mb_model(
         # Volumetric implantation + zero Dirichlet at surface
         distribution = gaussian_implantation_ufl(implantation_range, width, thickness=L)
         my_model.sources = [
-            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
-            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
-            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
-            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
+            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
+            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
         ]
         boundary_conditions.extend([
             F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
