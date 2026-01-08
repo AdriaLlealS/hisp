@@ -15,11 +15,13 @@ from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.h_transport_class import CustomProblem
 from hisp.settings import CustomSettings
 from hisp.helpers import Stepsize
+from hisp.helpers import gaussian_implantation_ufl
 
 # Constants
 kB_J = 1.380649e-23      # J/K
 eV_to_J = 1.602176634e-19  # J/eV
 implantation_range = 3e-9  # m (TODO: make this depend on incident energy)
+width = 1e-9  # m (implantation distribution sigma)
 
 
 def build_vertices_adaptive(L: float) -> np.ndarray:
@@ -288,50 +290,125 @@ def make_dynamic_mb_model(
     # Total flux functions
     def Gamma_D_total(t):
         return deuterium_ion_flux(t) + deuterium_atom_flux(t)
-    
+
     def Gamma_T_total(t):
         return tritium_ion_flux(t) + tritium_atom_flux(t)
-    
+
     # Get BC type from bin configuration
     bc_plasma_facing = bin.bin_configuration.bc_plasma_facing_surface
     bc_rear = bin.bin_configuration.bc_rear_surface
-    
+
     boundary_conditions = []
-    
-    # Plasma-facing surface (inlet) boundary conditions
-    if "Dirichlet" in bc_plasma_facing or "Robin" in bc_plasma_facing:
-        # Use Dirichlet BC (surface concentration)
+
+    # --- Plasma-facing surface (inlet) BC choices ---
+    # Options supported:
+    #  - "Robin - Surf. Rec. + Implantation"
+    #  - "Dirichlet - 0 concentration + Implantation"
+    #  - "Dirichlet - Analyttical implantation approximation"
+    if bc_plasma_facing == "Robin - Surf. Rec. + Implantation":
+        # Use volumetric implantation sources (gaussian) + Dirichlet 0 at surface
+        distribution = gaussian_implantation_ufl(implantation_range, width, thickness=L)
+
+        my_model.sources = [
+            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
+            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
+            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
+            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
+        ]
+
+        # --- Surface recombination (Robin-like) ---
+        # Read recombination parameters from material if available, otherwise use defaults
+        k_r0 = getattr(material, "K_R", 7.94e-17)
+        E_kr = getattr(material, "E_R", -2.0)
+        k_d0 = getattr(material, "k_d0", 0.0)
+        E_kd = getattr(material, "E_kd", 0.0)
+
+        # Get species objects
+        mobile_D = next(s for s in my_model.species if s.name == "D")
+        mobile_T = next(s for s in my_model.species if s.name == "T")
+
+        surface_reaction_dd = F.SurfaceReactionBC(
+            reactant=[mobile_D, mobile_D],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=inlet,
+        )
+
+        surface_reaction_tt = F.SurfaceReactionBC(
+            reactant=[mobile_T, mobile_T],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=inlet,
+        )
+
+        surface_reaction_dt = F.SurfaceReactionBC(
+            reactant=[mobile_D, mobile_T],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=inlet,
+        )
+
+        # Add surface reactions to BCs (keep fixed concentration too to mirror legacy)
+        boundary_conditions.extend([
+            surface_reaction_dd, 
+            surface_reaction_dt, 
+            surface_reaction_tt
+        ])
+
+    elif bc_plasma_facing == "Dirichlet - 0 concentration + Implantation":
+        # Volumetric implantation + zero Dirichlet at surface
+        distribution = gaussian_implantation_ufl(implantation_range, width, thickness=L)
+        my_model.sources = [
+            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
+            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "D"][0]),
+            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
+            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=[s for s in my_model.species if s.name == "T"][0]),
+        ]
+        boundary_conditions.extend([
+            F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
+            F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="T"),
+        ])
+
+    elif bc_plasma_facing == "Dirichlet - Analyttical implantation approximation":
+        # Use analytical surface concentration approximation (Dirichlet)
         c_sD = make_surface_concentration_time_function(
             temperature, Gamma_D_total, material.D0, material.E_D, implantation_range, surface_x=0.0
         )
         c_sT = make_surface_concentration_time_function(
             temperature, Gamma_T_total, material.D0, material.E_D, implantation_range, surface_x=0.0
         )
-        
-        bc_D = F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D")
-        bc_T = F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T")
-        boundary_conditions.extend([bc_D, bc_T])
-    else:
-        # Default: no flux or other BC
         boundary_conditions.extend([
-            F.ParticleFluxBC(subdomain=inlet, value=0.0, species="D"),
-            F.ParticleFluxBC(subdomain=inlet, value=0.0, species="T"),
+            F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D"),
+            F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T"),
         ])
-    
-    # Rear surface (outlet) boundary conditions
-    if "Neumann" in bc_rear or "no flux" in bc_rear.lower():
-        # No flux BC (Neumann)
+
+    else:
+        raise ValueError(f"Unsupported plasma-facing BC: {bc_plasma_facing!r}")
+
+    # --- Rear surface (outlet) BC choices ---
+    if bc_rear == "Dirichlet - 0 concentration":
+        boundary_conditions.extend([
+            F.FixedConcentrationBC(subdomain=outlet, value=0.0, species="D"),
+            F.FixedConcentrationBC(subdomain=outlet, value=0.0, species="T"),
+        ])
+    elif bc_rear == "Neumann - no flux":
+        # Explicit Neumann / no-flux at outlet
         boundary_conditions.extend([
             F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
             F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
         ])
     else:
-        # Default: no flux
-        boundary_conditions.extend([
-            F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
-            F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
-        ])
-    
+        raise ValueError(f"Unsupported rear BC: {bc_rear!r}")
+
     my_model.boundary_conditions = boundary_conditions
     
     # --- EXPORTS ---
