@@ -12,6 +12,9 @@ import festim as F
 
 from hisp.scenario import Scenario
 from hisp.plasma_data_handling import PlasmaDataHandling
+from hisp.h_transport_class import CustomProblem
+from hisp.settings import CustomSettings
+from hisp.helpers import Stepsize
 
 # Constants
 kB_J = 1.380649e-23      # J/K
@@ -251,7 +254,7 @@ def make_dynamic_mb_model(
     Returns:
         Tuple of (festim_model, quantities_dict)
     """
-    my_model = F.HydrogenTransportProblem()
+    my_model = CustomProblem()
     
     # --- GEOMETRY AND MESH ---
     L = bin.thickness  # Domain length from bin
@@ -361,14 +364,14 @@ def make_dynamic_mb_model(
     
     # --- SETTINGS ---
     bin_config = bin.bin_configuration
-    my_model.settings = F.Settings(
+    my_model.settings = CustomSettings(
         atol=bin_config.atol,
         rtol=bin_config.rtol,
         max_iterations=100,
         final_time=final_time,
     )
     
-    my_model.settings.stepsize = F.Stepsize(initial_value=1e-3)
+    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
     
     return my_model, quantities
 
