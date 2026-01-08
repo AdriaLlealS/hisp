@@ -343,24 +343,28 @@ def make_dynamic_mb_model(
                 folder=folder,
                 checkpoint=False,
             ),
-            F.XDMFExport(
-                field="retention",
-                folder=folder,
-                checkpoint=False,
-            ),
         ]
+    else:
+        my_model.exports = []
     
     # --- QUANTITIES TO TRACK ---
     quantities = {}
-    for species in my_model.species:
-        quantities[f"{species.name}_total_volume"] = F.TotalVolume(
-            field=species.name, volume=volume_subdomain
-        )
     
-    # Total retention
-    quantities["total_retention"] = F.TotalVolume(
-        field="retention", volume=volume_subdomain
-    )
+    # Add total volume for each species
+    for species in my_model.species:
+        quantity = F.TotalVolume(field=species, volume=volume_subdomain)
+        my_model.exports.append(quantity)
+        quantities[species.name] = quantity
+        
+        # Add surface flux for mobile species at inlet and outlet
+        if species.mobile:
+            inlet_flux = F.SurfaceFlux(field=species, surface=inlet)
+            my_model.exports.append(inlet_flux)
+            quantities[f"{species.name}_inlet_flux"] = inlet_flux
+            
+            outlet_flux = F.SurfaceFlux(field=species, surface=outlet)
+            my_model.exports.append(outlet_flux)
+            quantities[f"{species.name}_outlet_flux"] = outlet_flux
     
     # --- SETTINGS ---
     bin_config = bin.bin_configuration
