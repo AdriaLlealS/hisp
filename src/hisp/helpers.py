@@ -7,6 +7,10 @@ from hisp.scenario import Pulse
 from dolfinx import fem
 import math
 from festim import XDMFExport
+from hisp.scenario import Scenario
+from hisp.plasma_data_handling import PlasmaDataHandling
+from hisp.settings import CustomSettings
+import hisp.bin
 
 
 class PulsedSource(F.ParticleSource):
