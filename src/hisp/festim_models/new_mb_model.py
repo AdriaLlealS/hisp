@@ -410,6 +410,46 @@ def make_dynamic_mb_model(
         raise ValueError(f"Unsupported rear BC: {bc_rear!r}")
 
     my_model.boundary_conditions = boundary_conditions
+
+    # --- DEBUG: print a concise summary of the boundary conditions and sources ---
+    def _summarize_bc(bc):
+        try:
+            if isinstance(bc, F.SurfaceReactionBC):
+                reactant = getattr(bc, "reactant", None)
+                names = [r.name if hasattr(r, "name") else str(r) for r in reactant] if reactant else []
+                return f"SurfaceReactionBC reactants={names} k_r0={getattr(bc, 'k_r0', None)}"
+            if isinstance(bc, F.FixedConcentrationBC):
+                return f"FixedConcentrationBC species={getattr(bc, 'species', None)} value={getattr(bc, 'value', None)}"
+            if isinstance(bc, F.ParticleFluxBC):
+                return f"ParticleFluxBC species={getattr(bc, 'species', None)} value={getattr(bc, 'value', None)}"
+        except Exception:
+            pass
+        # Fallback representation
+        return repr(bc)
+
+    try:
+        print(f"=== DEBUG: Selected BCs -> plasma_facing={bc_plasma_facing!r}, rear={bc_rear!r} ===")
+        for i, bc in enumerate(boundary_conditions):
+            try:
+                summary = _summarize_bc(bc)
+            except Exception as e:
+                summary = f"<error summarizing: {e}>"
+            print(f"BC[{i}]: {summary}")
+
+        # Print sources if present
+        sources = getattr(my_model, "sources", None)
+        if sources:
+            print(f"=== DEBUG: Found {len(sources)} volumetric source(s) ===")
+            for j, src in enumerate(sources):
+                try:
+                    sps = [s.name for s in getattr(src, 'species', [])]
+                except Exception:
+                    sps = getattr(src, 'species', None)
+                print(f"Source[{j}]: species={sps} volume={getattr(src,'volume',None)}")
+        else:
+            print("=== DEBUG: No volumetric sources defined ===")
+    except Exception as e:
+        print(f"=== DEBUG: Failed to print BC summary: {e} ===")
     
     # --- EXPORTS ---
     if exports:
