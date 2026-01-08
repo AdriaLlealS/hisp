@@ -175,27 +175,14 @@ def create_species_and_traps(
     # Create reactions
     reactions_list = []
     
-    # Material diffusion parameters
-    D_0 = material.D0
-    E_D = material.E_D
-    Mat_density = material.Mat_density
-    
-    # Default recombination coefficient if not provided
-    # Use a simple estimate: k_0 = D_0 / (lattice_constant^2 * sites_per_atom * density)
-    # For simplicity, assume interstitial_distance and sites_per_atom
-    interstitial_distance = 1.117e-10  # m (typical for W, adjust if needed)
-    interstitial_sites_per_atom = 6
-    
-    default_k_0 = D_0 / (interstitial_distance**2 * interstitial_sites_per_atom * Mat_density)
-    
     for trap_info in trap_list:
         trap_params = trap_info['params']
         
-        # Use trap-specific parameters if provided, otherwise use defaults
-        k_0 = trap_params.k_0 if trap_params.k_0 is not None else default_k_0
-        E_k = trap_params.E_k if trap_params.E_k is not None else E_D
-        p_0 = trap_params.p_0 if trap_params.p_0 is not None else 1e13
-        E_p = trap_params.E_p if trap_params.E_p is not None else 1.0  # Default detrapping energy
+        # Use trap-specific parameters from CSV (all required)
+        k_0 = trap_params.k_0
+        E_k = trap_params.E_k
+        p_0 = trap_params.p_0
+        E_p = trap_params.E_p
         
         # Reaction for D in this trap
         reactions_list.append(
