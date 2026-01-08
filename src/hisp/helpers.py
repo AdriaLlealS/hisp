@@ -251,3 +251,195 @@ def make_ufl_flux_function(scalar_flux_function):
         return ufl.Constant(1.0)  # Placeholder - this needs proper implementation
     
     return ufl_flux
+
+def make_temperature_function(
+    scenario: Scenario,
+    plasma_data_handling: PlasmaDataHandling,
+    bin,  # Accept any bin type (SubBin, DivBin, or CSVBin)
+    coolant_temp: float,
+) -> Callable[[NDArray, float], NDArray]:
+    """Returns a function that calculates the temperature of the bin based on time and position.
+
+    Args:
+        scenario: the Scenario object containing the pulses
+        plasma_data_handling: the object containing the plasma data
+        bin: the bin/subbin to get the temperature function for
+        coolant_temp: the coolant temperature in K
+
+    Returns:
+        a callable of x, t returning the temperature in K
+    """
+
+    def T_function(x: NDArray, t: float) -> NDArray:
+        # Handle FESTIM 2.0 passing dolfinx.Constant instead of float
+        if hasattr(t, 'value'):
+            t = float(t.value)
+        elif not isinstance(t, (float, int)):
+            raise TypeError(f"t should be a float or have a .value attribute, got {type(t)}")
+
+        # get the pulse and time relative to the start of the pulse
+        pulse = scenario.get_pulse(t)
+        t_rel = t - scenario.get_time_start_current_pulse(t)
+        relative_time_within_pulse = t_rel % pulse.total_duration
+
+        if pulse.pulse_type == "BAKE":
+            T_value = periodic_pulse_function(
+                relative_time_within_pulse,
+                pulse=pulse,
+                value=483.15,  # K
+                value_off=343.0,  # K
+            )
+            value = np.full_like(x[0], T_value)
+
+        else:
+            heat_flux = plasma_data_handling.get_heat(
+                pulse, bin, relative_time_within_pulse
+            )
+            # Handle both string materials and Material objects
+            material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
+            if (
+                material_name == "W" or material_name == "SS"
+            ):  # FIXME: update ss temp when gven data:
+                value = calculate_temperature_W(
+                    x[0], heat_flux, coolant_temp, bin.thickness, bin.copper_thickness
+                )
+            elif material_name == "B":
+                T_value = calculate_temperature_B(heat_flux, coolant_temp)
+                value = np.full_like(x[0], T_value)
+            else:
+                raise ValueError(f"Unsupported material: {bin.material}")
+
+        return value
+
+    return T_function
+
+
+def make_particle_flux_function(
+    scenario: Scenario,
+    plasma_data_handling: PlasmaDataHandling,
+    bin,  # Accept any bin type (SubBin, DivBin, or CSVBin)
+    ion: bool,
+    tritium: bool,
+) -> Callable[[float], float]:
+    """Returns a function that calculates the particle flux based on time.
+
+    Args:
+        scenario: the Scenario object containing the pulses
+        plasma_data_handling: the object containing the plasma data
+        bin: the bin/subbin to get the temperature function for
+        ion: whether to get the ion flux
+        tritium: whether to get the tritium flux
+
+    Returns:
+        a callable of t returning the **incident** particle flux in m^-2 s^-1
+    """
+
+    def particle_flux_function(t: float) -> float:
+        # Handle FESTIM 2.0 passing dolfinx.Constant instead of float
+        if hasattr(t, 'value'):
+            t = float(t.value)
+        elif not isinstance(t, (float, int)):
+            raise TypeError(f"t should be a float or have a .value attribute, got {type(t)}")
+
+        # get the pulse and time relative to the start of the pulse
+        pulse = scenario.get_pulse(t)
+        relative_time = t - scenario.get_time_start_current_pulse(t)
+        relative_time_within_pulse = relative_time % pulse.total_duration
+
+        # get the incident particle flux
+        incident_hydrogen_particle_flux = plasma_data_handling.get_particle_flux(
+            pulse=pulse,
+            bin=bin,
+            t_rel=relative_time_within_pulse,
+            ion=ion,
+        )
+
+        # if tritium is requested, multiply by tritium fraction
+        if tritium:
+            value = incident_hydrogen_particle_flux * pulse.tritium_fraction
+        else:
+            value = incident_hydrogen_particle_flux * (1 - pulse.tritium_fraction)
+
+        return value
+
+    return particle_flux_function
+
+def compute_flux_values(scenario, plasma_data_handling, bin_):
+    """
+    Compute steady-state flux values for each pulse occurrence using get_particle_flux
+    at the midpoint of the steady-state region.
+    Returns a list of dicts with D_ion, D_atom, T_ion, T_atom.
+    """
+    occurrences = []
+    current_time = 0.0
+    for pulse in scenario.pulses:
+        for _ in range(pulse.nb_pulses):
+            # Pick a time inside steady state
+            if pulse.steady_state > 0:
+                t_rel = pulse.ramp_up + pulse.steady_state / 2
+            else:
+                t_rel = pulse.total_duration / 2  # fallback if no steady state
+
+            # Compute hydrogen flux for ion and atom
+            flux_ion = plasma_data_handling.get_particle_flux(pulse, bin_, t_rel, ion=True)
+            flux_atom = plasma_data_handling.get_particle_flux(pulse, bin_, t_rel, ion=False)
+
+            # Apply tritium fraction
+            T_ion = flux_ion * pulse.tritium_fraction
+            D_ion = flux_ion * (1 - pulse.tritium_fraction)
+            T_atom = flux_atom * pulse.tritium_fraction
+            D_atom = flux_atom * (1 - pulse.tritium_fraction)
+
+            occurrences.append({
+                'start': current_time,
+                'end': current_time + pulse.total_duration,
+                'pulse': pulse,
+                'D_ion': D_ion,
+                'D_atom': D_atom,
+                'T_ion': T_ion,
+                'T_atom': T_atom
+            })
+            current_time += pulse.total_duration
+    return occurrences
+
+
+
+def build_ufl_flux_expression(occurrences, value_off=0.0):
+    """
+    Returns four functions:
+    (D_ion_fn, D_atom_fn, T_ion_fn, T_atom_fn)
+    Each function accepts a UFL time variable `t` and returns the corresponding UFL expression.
+    """
+
+    def make_flux_fn(flux_key):
+        def flux_builder(t):
+            expr = value_off
+            for occ in occurrences:
+                p = occ['pulse']
+                start, end = occ['start'], occ['end']
+
+                in_window = And(ge(t, start), lt(t, end))
+                t_rel = t - start
+
+                ramp_up_cond = lt(t_rel, p.ramp_up)
+                steady_cond = And(ge(t_rel, p.ramp_up), lt(t_rel, p.ramp_up + p.steady_state))
+
+                # Ramp-up and ramp-down expressions
+                ramp_up_expr = (occ[flux_key] - value_off) / p.ramp_up * t_rel + value_off if p.ramp_up > 0 else occ[flux_key]
+                ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / p.ramp_down * (t_rel - (p.ramp_up + p.steady_state)) if p.ramp_down > 0 else occ[flux_key]
+                ramp_down_expr = conditional(ge(ramp_down_raw, value_off), ramp_down_raw, value_off)
+
+                pulse_flux = conditional(ramp_up_cond, ramp_up_expr,
+                                         conditional(steady_cond, occ[flux_key], ramp_down_expr))
+
+                expr += conditional(in_window, pulse_flux, 0.0)
+            return expr
+        return flux_builder
+
+    # Return four callable builders
+    return (
+        make_flux_fn('D_ion'),
+        make_flux_fn('D_atom'),
+        make_flux_fn('T_ion'),
+        make_flux_fn('T_atom'),
+    )
