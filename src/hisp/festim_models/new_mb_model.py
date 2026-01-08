@@ -147,14 +147,16 @@ def create_species_and_traps(
     trap_list = []
     
     n_traps = material.N_traps
-    print(f"\n=== DEBUG: Creating traps for {material.name} with N_traps={n_traps} ===")
+    mat_density = material.Mat_density  # atoms/m³
+    print(f"\n=== DEBUG: Creating traps for {material.name} with N_traps={n_traps}, Mat_density={mat_density} ===")
     for i in range(1, n_traps + 1):
         # Get trap parameters
         trap_params = material.traps[i - 1]
-        trap_density = trap_params.Trap_density
+        # Convert atomic fraction to absolute density (atoms/m³)
+        trap_density = trap_params.Trap_density * mat_density
         
         # Debug output
-        print(f"Trap {i}: Trap_density={trap_density}, k_0={trap_params.k_0}, E_k={trap_params.E_k}, p_0={trap_params.p_0}, E_p={trap_params.E_p}")
+        print(f"Trap {i}: Trap_density={trap_density} (from {trap_params.Trap_density} at.fr.), k_0={trap_params.k_0}, E_k={trap_params.E_k}, p_0={trap_params.p_0}, E_p={trap_params.E_p}")
         
         # Create trapped species for D and T in this trap
         trap_D = F.Species(f"trap{i}_D", mobile=False)
