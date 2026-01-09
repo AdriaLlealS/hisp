@@ -1,46 +1,12 @@
-[![CI](https://github.com/kaelyndunnell/hisp/actions/workflows/ci.yml/badge.svg)](https://github.com/kaelyndunnell/hisp/actions/workflows/ci.yml)
-[![docs](https://readthedocs.org/projects/hisp/badge/?version=latest)](https://hisp.readthedocs.io/en/latest/)
-
 # HISP
 
 Hydrogen Inventory Simulations for PFCs (HISP) is a series of code that uses FESTIM to simulate deuterium and tritium inventories in a fusion tokamak first wall and divertor PFCs. 
 
-## How to Run:
+## This Version / Origin
 
-Clone the repository:
+This repository is a modified version of the original `hisp` project initially developed by Kaelyn Dunnell at MIT. This particular fork was developed by Adrià Lleal during an internship at the ITER Organization and has been adapted to work with a more open and general `PFC-Tritium-Transport` workflow. It is tailored for estimations of tritium/hydrogen retention on fusion reactor plasma-facing components.
 
-```
-git clone https://github.com/kaelyndunnell/hisp
-cd hisp
-```
+Summary of what HISP does
 
-Run this command to create a new environment with the right dependencies (eg. dolfinx):
-```
-conda env create -f environment.yml
-```
+HISP receives bin definitions, material properties, time-dependent particle fluxes and heat loads, and a scenario specification (pulses, durations, repetition) — typically provided by the `PFC-Tritium-Transport` via a CSV input table. For each bin it constructs a FESTIM simulation: it translates the bin geometry (start/end coordinates, thickness, optional Cu layer and surface area) into the model domain, assigns material parameters from `h-transport-materials`, builds time-dependent boundary conditions and source/flux expressions, and selects appropriate boundary-condition types (Robin/Neumann) before assembling and solving the transport equations with FESTIM. The per-bin outputs (surface concentrations, retained inventory, implanted fractions, and time traces) are exported so they can be analysed individually or aggregated across bins for inventory estimates.
 
-Then, activate the environment:
-```
-conda activate hisp-env
-```
-
-
-Install the `hisp` package with:
-
-```
-python -m pip install -e .
-```
-
-This will also install the pip dependencies like `h-transport-materials` and `FESTIM`.
-
-> **_NOTE:_**  Using `-e` with pip will install the package in editable mode, meaning the source code can be modified without having to reinstall the package.
-
-## Run the tests
-
-After cloning the repo and installing hisp, run:
-
-```
-python -m pytest test
-```
-
-> **_NOTE:_**  Make sure to install the test dependencies with `python -m pip install -e .[test]`
