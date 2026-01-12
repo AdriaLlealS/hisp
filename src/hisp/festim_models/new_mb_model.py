@@ -109,8 +109,11 @@ def make_surface_concentration_time_function(
     D0: float,
     E_eV: float,
     R_p: float,
-    surface_x: float = 0.0
-) -> Callable[[float], float]:
+    surface_x: float = 0.0,
+    tritium_fraction: float = 0.0,
+    k_r: float | None = None,
+    E_R: float | None = None,
+) -> Tuple[Callable[[float], float], Callable[[float], float]]:
     """
     Create a surface concentration function for Dirichlet BC.
     
@@ -122,21 +125,53 @@ def make_surface_concentration_time_function(
         R_p: Implantation range (m)
         surface_x: Surface position (m)
         
+    Args:
+        k_r: optional surface recombination prefactor (for future use)
+        recombination_energy: optional recombination activation energy (eV) associated with `k_r`
+
     Returns:
-        Callable that returns surface concentration (part/m^3) at time t
+        Tuple of callables `(c_SD, c_ST)` returning surface concentration (part/m^3) at time t
     """
     x_surf = np.array([[float(surface_x)]])
     E_J = float(E_eV) * eV_to_J
+    E_RR = float(E_R) * eV_to_J if E_R is not None else None
 
-    def c_S(t):
+    def c_ST(t):
         t = float(t)
         T_surf = float(T_fun(x_surf, t)[0])
         phi = float(flux_fun(t))
         D_T = D0 * np.exp(-E_J / (kB_J * T_surf))
-        val = (phi * float(R_p)) / D_T
+        K_T = k_r * np.exp(-E_RR / (kB_J * T_surf)) if k_r is not None and E_RR is not None else 0.0
+        base = (phi * float(R_p)) / D_T
+        # Decide whether to include the sqrt term based on k_r.
+        # Omit the sqrt when k_r is greater than the threshold, or when it's
+        # explicitly None or zero (these are treated as non-recombining cases).
+        if k_r > 1e-16 or k_r is None or k_r == 0:
+            val = tritium_fraction * base
+        else:
+            val = tritium_fraction * (base + (np.sqrt(phi / K_T)))
         return float(val)
     
-    return c_S
+    def c_SD(t):
+        t = float(t)
+        T_surf = float(T_fun(x_surf, t)[0])
+        phi = float(flux_fun(t))
+        D_T = D0 * np.exp(-E_J / (kB_J * T_surf))
+        K_T = k_r * np.exp(-E_RR / (kB_J * T_surf)) if k_r is not None and E_RR is not None else 0.0
+        base = (phi * float(R_p)) / D_T
+        # Decide whether to include the sqrt term based on k_r.
+        # Omit the sqrt when k_r is greater than the threshold, or when it's
+        # explicitly None or zero (these are treated as non-recombining cases).
+        if k_r > 1e-16 or k_r is None or k_r == 0:
+            val = (1.0 - tritium_fraction) * base
+        else:
+            val = (1.0 - tritium_fraction) * (base + (np.sqrt(phi / K_T)))
+        return float(val)
+    
+    # For now return two functions (for D and T surface concentrations).
+    # Both are equal to `c_S` at the moment; later the tritium_fraction
+    # argument can be used to return different functions for D and T.
+    return c_ST, c_SD
 
 
 def create_species_and_traps(
@@ -393,12 +428,22 @@ def make_dynamic_mb_model(
 
     elif bc_plasma_facing == "Dirichlet - Analyttical implantation approximation":
         # Use analytical surface concentration approximation (Dirichlet)
-        c_sD = make_surface_concentration_time_function(
-            temperature, Gamma_D_total, material.D0, material.E_D, implantation_range, surface_x=0.0
+        k_r0 = getattr(material, "K_R", None)
+        e_r0 = getattr(material, "E_R", None)
+        # Use total incident particle flux (D + T) for the analytical surface concentration
+        combined_flux = lambda t: float(Gamma_D_total(t) + Gamma_T_total(t))
+        c_sD, c_sT = make_surface_concentration_time_function(
+            temperature,
+            combined_flux,
+            material.D0,
+            material.E_D,
+            implantation_range,
+            surface_x=0.0,
+            tritium_fraction=0.0,
+            k_r=k_r0,
+            E_R=e_r0,
         )
-        c_sT = make_surface_concentration_time_function(
-            temperature, Gamma_T_total, material.D0, material.E_D, implantation_range, surface_x=0.0
-        )
+        
         boundary_conditions.extend([
             F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D"),
             F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T"),
