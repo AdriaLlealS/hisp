@@ -910,5 +910,3 @@ def build_ufl_flux_expression(occurrences, value_off=0.0):
         make_flux_fn('T_ion'),
         make_flux_fn('T_atom'),
     )
-
-

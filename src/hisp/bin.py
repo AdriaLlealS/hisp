@@ -50,7 +50,7 @@ for p in unique_candidates:
 # Import CSV bin classes from PFC-Tritium-Transport
 # This avoids duplication — all changes should be made in PFC-Tritium-Transport/csv_bin.py
 try:
-    from csv_bin import BinConfiguration, Bin, BinCollection, Reactor
+    from bins_from_csv.csv_bin import BinConfiguration, Bin, BinCollection, Reactor
 except ImportError as e:
     tried = ", ".join(str(p) for p in unique_candidates)
     hint = "Set env var PFC_TT_PATH to your PFC-Tritium-Transport folder."
@@ -63,7 +63,7 @@ except ImportError as e:
 # HISP code can reference materials via `hisp.bin.Material` in the same way
 # it references the CSV-driven Bin classes above.
 try:
-    from materials import Material
+    from materials.materials import Material
 except ImportError as e:
     tried = ", ".join(str(p) for p in unique_candidates)
     hint = "Set env var PFC_TT_PATH to your PFC-Tritium-Transport folder."
