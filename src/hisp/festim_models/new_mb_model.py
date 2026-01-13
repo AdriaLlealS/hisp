@@ -398,7 +398,7 @@ def make_dynamic_mb_model(
         surface_reaction_dt = F.SurfaceReactionBC(
             reactant=[mobile_D, mobile_T],
             gas_pressure=0,
-            k_r0=k_r0,
+            k_r0=2*k_r0,
             E_kr=E_kr,
             k_d0=k_d0,
             E_kd=E_kd,
