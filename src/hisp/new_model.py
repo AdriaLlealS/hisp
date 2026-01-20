@@ -83,7 +83,8 @@ class NewModel:
         
         # Set up milestones for adaptive timestepping
         bin_config = bin.bin_configuration
-        milestones = self._make_milestones(bin_config)
+        initial_stepsize = 1e-3
+        milestones = self._make_milestones(initial_stepsize)
         milestones.append(my_model.settings.final_time)
         my_model.settings.stepsize.milestones = milestones
         
@@ -103,49 +104,45 @@ class NewModel:
         
         return my_model, quantities
     
-    def _make_milestones(self, bin_config):
+    def _make_milestones(self, initial_stepsize_value: float):
         """
-        Create milestone times for adaptive timestepping based on scenario pulses.
-        
-        Args:
-            bin_config: BinConfiguration with stepsize limits
-            
-        Returns:
-            List of milestone times
+        Build stepsize/adaptivity milestones from scenario pulses.
+        (Same logic as original file, preserved for stability of runs.)
         """
         milestones = []
         current_time = 0.0
-        
+
         for pulse in self.scenario.pulses:
-            pulse_start = current_time
-            pulse_end = current_time + pulse.total_duration
-            
-            # Add milestone at pulse start
-            if pulse_start > 0:
-                milestones.append(pulse_start)
-            
-            # Add milestones during pulse based on pulse type
-            if pulse.pulse_type in ["FP", "ICWC", "GDC"]:
-                # For plasma pulses, add more frequent milestones
-                max_step = bin_config.fp_max_stepsize
-                n_steps = int(np.ceil(pulse.total_duration / max_step))
-                for i in range(1, n_steps):
-                    t = pulse_start + i * pulse.total_duration / n_steps
-                    milestones.append(t)
-            else:
-                # For non-plasma pulses, use larger steps
-                max_step = bin_config.max_stepsize_no_fp
-                n_steps = int(np.ceil(pulse.total_duration / max_step))
-                for i in range(1, n_steps):
-                    t = pulse_start + i * pulse.total_duration / n_steps
-                    milestones.append(t)
-            
-            # Add milestone at pulse end
-            milestones.append(pulse_end)
-            
-            current_time = pulse_end
-        
-        # Remove duplicates and sort
-        milestones = sorted(set(milestones))
-        
-        return milestones
+            start_of_pulse = self.scenario.get_time_start_current_pulse(current_time)
+            for i in range(pulse.nb_pulses):
+                # small milestone right after each sub-pulse start
+                milestones.append(start_of_pulse + pulse.total_duration * i + initial_stepsize_value)
+
+                # ramp-up / ramp-down edges
+                if i == 0:
+                    milestones.append(start_of_pulse + pulse.ramp_up)
+                    milestones.append(start_of_pulse + pulse.ramp_up + pulse.steady_state)
+                else:
+                    milestones.append(start_of_pulse + pulse.total_duration * (i - 1) + pulse.ramp_up)
+                    milestones.append(start_of_pulse + pulse.total_duration * (i - 1) + pulse.ramp_up + pulse.steady_state)
+
+                # start of next sub-pulse
+                milestones.append(start_of_pulse + pulse.total_duration * (i + 1))
+
+                # before the end of waiting period
+                assert pulse.total_duration - pulse.duration_no_waiting >= 10
+                milestones.append(start_of_pulse + pulse.total_duration * (i + 1) - 10)
+                milestones.append(start_of_pulse + pulse.total_duration * (i + 1) - 2)
+
+                # start of waiting for this sub-pulse
+                milestones.append(start_of_pulse + pulse.total_duration * i + pulse.duration_no_waiting)
+
+                # RISP special anchor
+                if getattr(pulse, "pulse_type", None) == "RISP":
+                    t_begin_real_pulse = start_of_pulse + 95
+                    milestones.append(t_begin_real_pulse + pulse.total_duration * i)
+                    milestones.append(t_begin_real_pulse + pulse.total_duration * i + 0.001)
+
+            current_time = start_of_pulse + pulse.total_duration * pulse.nb_pulses
+
+        return sorted(np.unique(milestones).tolist())
