@@ -37,70 +37,12 @@ implantation_range = 3e-9  # m (TODO: make this depend on incident energy)
 width = 1e-9  # m (implantation distribution sigma)
 
 
-def build_vertices_adaptive(L: float) -> np.ndarray:
-    """
-    Return an np.ndarray of vertices on [0, L] with adaptive meshing:
-    - If L >= 5e-5: graded (h0=1e-10, r=1.1) until dL=1e-5, then constant dL=1e-5
-    - If L < 5e-5: graded (h0=1e-10, r=1.015) until reaching L
-    
-    Args:
-        L: Domain length (m)
-        
-    Returns:
-        np.ndarray of vertex positions
-    """
-    if L <= 0.0:
-        raise ValueError("L must be positive.")
-
-    xs = [0.0]
-    eps = 1e-18  # tolerance to avoid duplicates
-
-    if L >= 5e-5:
-        # --- GRADED REGION ---
-        h = 1e-10
-        r = 1.1
-        dL_const = 1e-5
-
-        while True:
-            next_x = xs[-1] + h
-            if next_x >= L - eps:
-                if L - xs[-1] > eps:
-                    xs.append(L)
-                break
-            if h < dL_const - eps:
-                xs.append(next_x)
-                h *= r
-            else:
-                break
-
-        # --- CONSTANT REGION ---
-        if xs[-1] < L - eps:
-            start = xs[-1] + dL_const
-            uniform = np.arange(start, L - eps, dL_const)
-            xs.extend(uniform.tolist())
-            if xs[-1] < L - eps:
-                xs.append(L)
-    else:
-        # --- PURE GRADED REGION ---
-        h = 1e-10
-        r = 1.015
-        while True:
-            next_x = xs[-1] + h
-            if next_x < L - eps:
-                xs.append(next_x)
-                h *= r
-            else:
-                if L - xs[-1] > eps:
-                    xs.append(L)
-                break
-
-    # --- ENSURE NO DUPLICATES ---
-    out = [xs[0]]
-    for v in xs[1:]:
-        if abs(v - out[-1]) > eps:
-            out.append(v)
-
-    return np.array(out)
+def graded_vertices(L, h0, r):
+        xs = [0.0]; h = h0
+        while xs[-1] + h < L:
+            xs.append(xs[-1] + h); h *= r
+        if xs[-1] < L: xs.append(L)
+        return np.array(xs)
 
 
 def make_surface_concentration_time_function(
@@ -272,7 +214,7 @@ def make_dynamic_mb_model(
     
     # --- GEOMETRY AND MESH ---
     L = bin.thickness  # Domain length from bin
-    vertices = build_vertices_adaptive(L)
+    vertices = graded_vertices(L=L, h0=1e-10, r=1.01)
     my_model.mesh = F.Mesh1D(vertices)
     
     # --- MATERIAL ---
