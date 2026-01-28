@@ -232,6 +232,11 @@ def make_dynamic_mb_model(
     ion_reflection = implantation_params.get('ion', {}).get('reflection_coefficient', 0.0)
     atom_reflection = implantation_params.get('atom', {}).get('reflection_coefficient', 0.0)
     
+    # Debug: Print implantation parameters
+    print(f"\n=== Implantation Parameters (Bin {bin.bin_number}) ===")
+    print(f"  Ion range: {ion_range*1e9:.3f} nm, width: {ion_width*1e9:.3f} nm, reflection coeff: {ion_reflection:.4f}")
+    print(f"  Atom range: {atom_range*1e9:.3f} nm, width: {atom_width*1e9:.3f} nm, reflection coeff: {atom_reflection:.4f}")
+    
     # --- APPLY REFLECTION COEFFICIENTS TO FLUX FUNCTIONS ---
     # Wrap flux functions to reduce them by reflection coefficient
     def apply_reflection(flux_func, reflection_coeff):
