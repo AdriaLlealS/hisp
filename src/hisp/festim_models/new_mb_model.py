@@ -248,7 +248,7 @@ def make_dynamic_mb_model(
     
     # --- GEOMETRY AND MESH ---
     L = bin.thickness  # Domain length from bin
-    vertices = graded_vertices(L=L, h0=1e-10, r=1.1)
+    vertices = graded_vertices(L=L, h0=1e-10, r=1.05)
     my_model.mesh = F.Mesh1D(vertices)
     
     # --- MATERIAL ---
