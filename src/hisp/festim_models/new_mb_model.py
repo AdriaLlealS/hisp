@@ -37,70 +37,57 @@ implantation_range = 3e-9  # m (TODO: make this depend on incident energy)
 width = 1e-9  # m (implantation distribution sigma)
 
 
-def build_vertices_adaptive(L: float) -> np.ndarray:
+def graded_vertices(L, h0, r):
+        xs = [0.0]; h = h0
+        while xs[-1] + h < L:
+            xs.append(xs[-1] + h); h *= r
+        if xs[-1] < L: xs.append(L)
+        return np.array(xs)
+
+
+def compute_export_times(scenario: Scenario, samples_per_pulse: int = 3) -> list:
     """
-    Return an np.ndarray of vertices on [0, L] with adaptive meshing:
-    - If L >= 5e-5: graded (h0=1e-10, r=1.1) until dL=1e-5, then constant dL=1e-5
-    - If L < 5e-5: graded (h0=1e-10, r=1.015) until reaching L
+    Calculate times for profile exports (3 per pulse by default).
+    
+    For each pulse (including BAKE), exports at:
+    - Start of ramp-up
+    - Middle of steady-state
+    - End of ramp-down
     
     Args:
-        L: Domain length (m)
+        scenario: Scenario with pulse sequence
+        samples_per_pulse: Number of samples per pulse (default: 3)
         
     Returns:
-        np.ndarray of vertex positions
+        List of export times in seconds
     """
-    if L <= 0.0:
-        raise ValueError("L must be positive.")
-
-    xs = [0.0]
-    eps = 1e-18  # tolerance to avoid duplicates
-
-    if L >= 5e-5:
-        # --- GRADED REGION ---
-        h = 1e-10
-        r = 1.1
-        dL_const = 1e-5
-
-        while True:
-            next_x = xs[-1] + h
-            if next_x >= L - eps:
-                if L - xs[-1] > eps:
-                    xs.append(L)
-                break
-            if h < dL_const - eps:
-                xs.append(next_x)
-                h *= r
+    export_times = []
+    current_time = 0.0
+    
+    for pulse in scenario.pulses:
+        for _ in range(pulse.nb_pulses):
+            # Calculate key times within this pulse occurrence
+            pulse_duration = pulse.total_duration
+            ramp_up = pulse.ramp_up
+            steady_state = pulse.steady_state
+            ramp_down = pulse.ramp_down
+            
+            if samples_per_pulse == 3:
+                # Export at: start of ramp-up, middle of steady-state, end of ramp-down
+                t1 = current_time  # Start of ramp-up
+                t2 = current_time + ramp_up + steady_state / 2  # Middle of steady-state
+                t3 = current_time + pulse_duration  # End of ramp-down (end of pulse)
+                
+                export_times.extend([t1, t2, t3])
             else:
-                break
-
-        # --- CONSTANT REGION ---
-        if xs[-1] < L - eps:
-            start = xs[-1] + dL_const
-            uniform = np.arange(start, L - eps, dL_const)
-            xs.extend(uniform.tolist())
-            if xs[-1] < L - eps:
-                xs.append(L)
-    else:
-        # --- PURE GRADED REGION ---
-        h = 1e-10
-        r = 1.015
-        while True:
-            next_x = xs[-1] + h
-            if next_x < L - eps:
-                xs.append(next_x)
-                h *= r
-            else:
-                if L - xs[-1] > eps:
-                    xs.append(L)
-                break
-
-    # --- ENSURE NO DUPLICATES ---
-    out = [xs[0]]
-    for v in xs[1:]:
-        if abs(v - out[-1]) > eps:
-            out.append(v)
-
-    return np.array(out)
+                # Generic sampling: evenly spaced within pulse
+                for i in range(samples_per_pulse):
+                    t = current_time + (i + 0.5) * pulse_duration / samples_per_pulse
+                    export_times.append(t)
+            
+            current_time += pulse_duration
+    
+    return export_times
 
 
 def make_surface_concentration_time_function(
@@ -249,13 +236,15 @@ def make_dynamic_mb_model(
     tritium_atom_flux: Callable,
     final_time: float,
     folder: str,
+    occurrences: list = None,  # Optional: Pre-computed flux occurrences with steady-state values
     exports: bool = False,
+    profile_export: bool = True,  # Optional: Whether to export 1D concentration profiles
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model dynamically based on bin properties.
     
     Args:
-        bin: Bin object containing material, thickness, and configuration
+        bin: Bin object containing material, thickness, configuration, and implantation_params
         temperature: Temperature function T(x, t) in K
         deuterium_ion_flux: Deuterium ion flux function (part/m^2/s)
         tritium_ion_flux: Tritium ion flux function (part/m^2/s)
@@ -264,15 +253,54 @@ def make_dynamic_mb_model(
         final_time: Final simulation time (s)
         folder: Output folder for results
         exports: Whether to export detailed outputs
+        profile_export: Whether to export 1D concentration profiles (default: True)
         
     Returns:
         Tuple of (festim_model, quantities_dict)
     """
     my_model = CustomProblem()
     
+    # --- GET IMPLANTATION PARAMETERS FROM BIN ---
+    # bin.implantation_params should have structure:
+    # {'ion': {'implantation_range': ..., 'width': ..., 'reflection_coefficient': ...},
+    #  'atom': {...}}
+    implantation_params = getattr(bin, 'implantation_params', {
+        'ion': {'implantation_range': implantation_range, 'width': width, 'reflection_coefficient': 0.0},
+        'atom': {'implantation_range': implantation_range, 'width': width, 'reflection_coefficient': 0.0}
+    })
+    
+    # Get parameters (use defaults if not available)
+    ion_range = implantation_params.get('ion', {}).get('implantation_range', implantation_range)
+    ion_width = implantation_params.get('ion', {}).get('width', width)
+    atom_range = implantation_params.get('atom', {}).get('implantation_range', implantation_range)
+    atom_width = implantation_params.get('atom', {}).get('width', width)
+    
+    # Reflection coefficients (will be applied to flux functions)
+    ion_reflection = implantation_params.get('ion', {}).get('reflection_coefficient', 0.0)
+    atom_reflection = implantation_params.get('atom', {}).get('reflection_coefficient', 0.0)
+    
+    # Debug: Print implantation parameters
+    print(f"\n=== Implantation Parameters (Bin {bin.bin_number}) ===")
+    print(f"  Ion range: {ion_range*1e9:.3f} nm, width: {ion_width*1e9:.3f} nm, reflection coeff: {ion_reflection:.4f}")
+    print(f"  Atom range: {atom_range*1e9:.3f} nm, width: {atom_width*1e9:.3f} nm, reflection coeff: {atom_reflection:.4f}")
+    
+    # --- APPLY REFLECTION COEFFICIENTS TO FLUX FUNCTIONS ---
+    # Wrap flux functions to reduce them by reflection coefficient
+    def apply_reflection(flux_func, reflection_coeff):
+        """Wrapper to apply reflection coefficient to a flux function"""
+        def reflected_flux(t):
+            return flux_func(t) * (1.0 - reflection_coeff)
+        return reflected_flux
+    
+    # Apply reflection to ion and atom fluxes
+    deuterium_ion_flux_reflected = apply_reflection(deuterium_ion_flux, ion_reflection)
+    tritium_ion_flux_reflected = apply_reflection(tritium_ion_flux, ion_reflection)
+    deuterium_atom_flux_reflected = apply_reflection(deuterium_atom_flux, atom_reflection)
+    tritium_atom_flux_reflected = apply_reflection(tritium_atom_flux, atom_reflection)
+    
     # --- GEOMETRY AND MESH ---
     L = bin.thickness  # Domain length from bin
-    vertices = build_vertices_adaptive(L)
+    vertices = graded_vertices(L=L, h0=1e-10, r=1.05)
     my_model.mesh = F.Mesh1D(vertices)
     
     # --- MATERIAL ---
@@ -299,13 +327,55 @@ def make_dynamic_mb_model(
     # --- TEMPERATURE ---
     my_model.temperature = temperature
     
+    # --- CALCULATE WEIGHTED AVERAGE IMPLANTATION RANGE (time-dependent) ---
+    # For analytical approximation BC, use weighted average of ion and atom ranges
+    # Weight by their respective steady-state flux values
+    # This varies with time if different pulses have different flux values
+    
+    def get_weighted_implantation_ranges(t):
+        """Calculate weighted implantation ranges for D and T at time t
+        
+        Returns:
+            Tuple of (weighted_range_d, weighted_range_t)
+        """
+        weighted_range_d = ion_range  # default fallback
+        weighted_range_t = ion_range  # default fallback
+        
+        if occurrences and len(occurrences) > 0:
+            # Find the occurrence that contains time t
+            for occurrence in occurrences:
+                if occurrence['start'] <= t < occurrence['end']:
+                    # Extract steady-state flux values for this pulse
+                    d_ion_flux_ss = occurrence['D_ion']
+                    d_atom_flux_ss = occurrence['D_atom']
+                    t_ion_flux_ss = occurrence['T_ion']
+                    t_atom_flux_ss = occurrence['T_atom']
+                    
+                    # Calculate weighted average range for deuterium
+                    d_total_flux = d_ion_flux_ss + d_atom_flux_ss
+                    if d_total_flux > 0:
+                        weighted_range_d = (d_atom_flux_ss * atom_range + d_ion_flux_ss * ion_range) / d_total_flux
+                    else:
+                        weighted_range_d = ion_range
+                    
+                    # Calculate weighted average range for tritium
+                    t_total_flux = t_ion_flux_ss + t_atom_flux_ss
+                    if t_total_flux > 0:
+                        weighted_range_t = (t_atom_flux_ss * atom_range + t_ion_flux_ss * ion_range) / t_total_flux
+                    else:
+                        weighted_range_t = ion_range
+                    
+                    break
+        
+        return weighted_range_d, weighted_range_t
+    
     # --- BOUNDARY CONDITIONS ---
-    # Total flux functions
+    # Total flux functions (using reflected fluxes)
     def Gamma_D_total(t):
-        return deuterium_ion_flux(t) + deuterium_atom_flux(t)
+        return deuterium_ion_flux_reflected(t) + deuterium_atom_flux_reflected(t)
 
     def Gamma_T_total(t):
-        return tritium_ion_flux(t) + tritium_atom_flux(t)
+        return tritium_ion_flux_reflected(t) + tritium_atom_flux_reflected(t)
 
     # Get BC type from bin configuration
     bc_plasma_facing = bin.bin_configuration.bc_plasma_facing_surface
@@ -324,13 +394,15 @@ def make_dynamic_mb_model(
     #  - "Dirichlet - Analyttical implantation approximation"
     if bc_plasma_facing == "Robin - Surf. Rec. + Implantation":
         # Use volumetric implantation sources (gaussian) + Dirichlet 0 at surface
-        distribution = gaussian_implantation_ufl(implantation_range, width, thickness=L)
+        # Use ion parameters for ions, atom parameters for atoms
+        distribution_ion = gaussian_implantation_ufl(ion_range, ion_width, thickness=L)
+        distribution_atom = gaussian_implantation_ufl(atom_range, atom_width, thickness=L)
 
         my_model.sources = [
-            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
-            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
-            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
-            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
+            F.ParticleSource(value=lambda x, t: deuterium_ion_flux_reflected(t) * distribution_ion(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: deuterium_atom_flux_reflected(t) * distribution_atom(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: tritium_ion_flux_reflected(t) * distribution_ion(x), volume=volume_subdomain, species=mobile_T),
+            F.ParticleSource(value=lambda x, t: tritium_atom_flux_reflected(t) * distribution_atom(x), volume=volume_subdomain, species=mobile_T),
         ]
 
         # --- Surface recombination (Robin-like) ---
@@ -379,12 +451,14 @@ def make_dynamic_mb_model(
 
     elif bc_plasma_facing == "Dirichlet - 0 concentration + Implantation":
         # Volumetric implantation + zero Dirichlet at surface
-        distribution = gaussian_implantation_ufl(implantation_range, width, thickness=L)
+        distribution_ion = gaussian_implantation_ufl(ion_range, ion_width, thickness=L)
+        distribution_atom = gaussian_implantation_ufl(atom_range, atom_width, thickness=L)
+        
         my_model.sources = [
-            F.ParticleSource(value=lambda x, t: deuterium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
-            F.ParticleSource(value=lambda x, t: deuterium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_D),
-            F.ParticleSource(value=lambda x, t: tritium_ion_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
-            F.ParticleSource(value=lambda x, t: tritium_atom_flux(t) * distribution(x), volume=volume_subdomain, species=mobile_T),
+            F.ParticleSource(value=lambda x, t: deuterium_ion_flux_reflected(t) * distribution_ion(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: deuterium_atom_flux_reflected(t) * distribution_atom(x), volume=volume_subdomain, species=mobile_D),
+            F.ParticleSource(value=lambda x, t: tritium_ion_flux_reflected(t) * distribution_ion(x), volume=volume_subdomain, species=mobile_T),
+            F.ParticleSource(value=lambda x, t: tritium_atom_flux_reflected(t) * distribution_atom(x), volume=volume_subdomain, species=mobile_T),
         ]
         boundary_conditions.extend([
             F.FixedConcentrationBC(subdomain=inlet, value=0.0, species="D"),
@@ -393,15 +467,21 @@ def make_dynamic_mb_model(
 
     elif bc_plasma_facing == "Dirichlet - Analyttical implantation approximation":
         # Use analytical surface concentration approximation (Dirichlet)
-        c_sD = make_surface_concentration_time_function(
-            temperature, Gamma_D_total, material.D0, material.E_D, implantation_range, surface_x=0.0
-        )
-        c_sT = make_surface_concentration_time_function(
-            temperature, Gamma_T_total, material.D0, material.E_D, implantation_range, surface_x=0.0
-        )
+        # Use separate weighted ranges for D and T based on their respective flux ratios
+        def c_sD_time_dependent(t):
+            weighted_range_d, _ = get_weighted_implantation_ranges(t)
+            return make_surface_concentration_time_function(
+                temperature, Gamma_D_total, material.D0, material.E_D, weighted_range_d, surface_x=0.0
+            )(t)
+        
+        def c_sT_time_dependent(t):
+            _, weighted_range_t = get_weighted_implantation_ranges(t)
+            return make_surface_concentration_time_function(
+                temperature, Gamma_T_total, material.D0, material.E_D, weighted_range_t, surface_x=0.0
+            )(t)
         boundary_conditions.extend([
-            F.FixedConcentrationBC(subdomain=inlet, value=c_sD, species="D"),
-            F.FixedConcentrationBC(subdomain=inlet, value=c_sT, species="T"),
+            F.FixedConcentrationBC(subdomain=inlet, value=c_sD_time_dependent, species="D"),
+            F.FixedConcentrationBC(subdomain=inlet, value=c_sT_time_dependent, species="T"),
         ])
 
     else:
@@ -479,11 +559,42 @@ def make_dynamic_mb_model(
     # --- QUANTITIES TO TRACK ---
     quantities = {}
     
+    # Compute export times for profiles (3 per pulse)
+    # Import scenario from occurrences if available, otherwise use final_time to estimate
+    profile_export_times = None
+    if occurrences and len(occurrences) > 0:
+        # Reconstruct a minimal scenario-like object from occurrences
+        # This is a workaround since we don't have direct access to scenario here
+        # We'll compute times manually from occurrences
+        profile_export_times = []
+        for occ in occurrences:
+            pulse = occ['pulse']
+            start_time = occ['start']
+            ramp_up = pulse.ramp_up
+            steady_state = pulse.steady_state
+            pulse_duration = pulse.total_duration
+            
+            # Export at: start of ramp-up, middle of steady-state, end of ramp-down
+            t1 = start_time  # Start of ramp-up
+            t2 = start_time + ramp_up + steady_state / 2  # Middle of steady-state
+            t3 = start_time + pulse_duration  # End of ramp-down (end of pulse)
+            
+            profile_export_times.extend([t1, t2, t3])
+    
     # Add total volume for each species
     for species in my_model.species:
         quantity = F.TotalVolume(field=species, volume=volume_subdomain)
         my_model.exports.append(quantity)
         quantities[species.name] = quantity
+        
+        # Add 1D profile for each species with times parameter (if profile_export is True)
+        if profile_export:
+            if profile_export_times:
+                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
+            else:
+                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
+            my_model.exports.append(profile)
+            quantities[f"{species.name}_profile"] = profile
         
         # Add surface flux for mobile species at inlet and outlet
         if species.mobile:
@@ -515,6 +626,7 @@ def make_model_with_scenario(
     plasma_data_handling: PlasmaDataHandling,
     coolant_temp: float,
     exports: bool = False,
+    profile_export: bool = False,
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model using scenario-based flux and temperature functions.
@@ -525,6 +637,7 @@ def make_model_with_scenario(
         plasma_data_handling: PlasmaDataHandling for flux/heat data
         coolant_temp: Coolant temperature (K)
         exports: Whether to export detailed outputs
+        profile_export: Whether to export 1D concentration profiles (default: True)
         
     Returns:
         Tuple of (festim_model, quantities_dict)
@@ -541,10 +654,12 @@ def make_model_with_scenario(
     # Check BC type to decide which flux function type to use
     bc_plasma_facing = bin.bin_configuration.bc_plasma_facing_surface
     
+    # Always compute occurrences for steady-state flux values (used for weighted implantation range)
+    occurrences = compute_flux_values(scenario, plasma_data_handling, bin)
+    
     # For implantation BCs, use UFL flux expressions (required for ParticleSource)
     if bc_plasma_facing in ("Robin - Surf. Rec. + Implantation", "Dirichlet - 0 concentration + Implantation"):
         # Use UFL flux expressions for ParticleSource compatibility
-        occurrences = compute_flux_values(scenario, plasma_data_handling, bin)
         deuterium_ion_flux, deuterium_atom_flux, tritium_ion_flux, tritium_atom_flux = build_ufl_flux_expression(occurrences)
     else:
         # For analytical Dirichlet BC (no volumetric sources), plain callables are fine
@@ -590,7 +705,9 @@ def make_model_with_scenario(
         tritium_atom_flux=tritium_atom_flux,
         final_time=scenario.get_maximum_time(),
         folder=f"results_bin_{bin.bin_number}",
+        occurrences=occurrences,
         exports=exports,
+        profile_export=profile_export,
     )
 
 #Helper functions block to create temperature profiles and flux functions 
