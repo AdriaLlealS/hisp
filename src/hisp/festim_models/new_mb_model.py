@@ -238,6 +238,7 @@ def make_dynamic_mb_model(
     folder: str,
     occurrences: list = None,  # Optional: Pre-computed flux occurrences with steady-state values
     exports: bool = False,
+    profile_export: bool = True,  # Optional: Whether to export 1D concentration profiles
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model dynamically based on bin properties.
@@ -252,6 +253,7 @@ def make_dynamic_mb_model(
         final_time: Final simulation time (s)
         folder: Output folder for results
         exports: Whether to export detailed outputs
+        profile_export: Whether to export 1D concentration profiles (default: True)
         
     Returns:
         Tuple of (festim_model, quantities_dict)
@@ -585,13 +587,14 @@ def make_dynamic_mb_model(
         my_model.exports.append(quantity)
         quantities[species.name] = quantity
         
-        # Add 1D profile for each species with times parameter
-        if profile_export_times:
-            profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
-        else:
-            profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
-        my_model.exports.append(profile)
-        quantities[f"{species.name}_profile"] = profile
+        # Add 1D profile for each species with times parameter (if profile_export is True)
+        if profile_export:
+            if profile_export_times:
+                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
+            else:
+                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
+            my_model.exports.append(profile)
+            quantities[f"{species.name}_profile"] = profile
         
         # Add surface flux for mobile species at inlet and outlet
         if species.mobile:
@@ -623,6 +626,7 @@ def make_model_with_scenario(
     plasma_data_handling: PlasmaDataHandling,
     coolant_temp: float,
     exports: bool = False,
+    profile_export: bool = False,
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model using scenario-based flux and temperature functions.
@@ -633,6 +637,7 @@ def make_model_with_scenario(
         plasma_data_handling: PlasmaDataHandling for flux/heat data
         coolant_temp: Coolant temperature (K)
         exports: Whether to export detailed outputs
+        profile_export: Whether to export 1D concentration profiles (default: True)
         
     Returns:
         Tuple of (festim_model, quantities_dict)
@@ -702,6 +707,7 @@ def make_model_with_scenario(
         folder=f"results_bin_{bin.bin_number}",
         occurrences=occurrences,
         exports=exports,
+        profile_export=profile_export,
     )
 
 #Helper functions block to create temperature profiles and flux functions 
