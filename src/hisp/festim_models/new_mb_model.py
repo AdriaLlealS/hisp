@@ -587,9 +587,9 @@ def make_dynamic_mb_model(
         
         # Add 1D profile for each species with times parameter
         if profile_export_times:
-            profile = F.Profile1D(field=species, subdomain=volume_subdomain, times=profile_export_times)
+            profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
         else:
-            profile = F.Profile1D(field=species, subdomain=volume_subdomain)
+            profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
         my_model.exports.append(profile)
         quantities[f"{species.name}_profile"] = profile
         
