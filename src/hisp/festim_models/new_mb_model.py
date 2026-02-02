@@ -45,6 +45,51 @@ def graded_vertices(L, h0, r):
         return np.array(xs)
 
 
+def compute_export_times(scenario: Scenario, samples_per_pulse: int = 3) -> list:
+    """
+    Calculate times for profile exports (3 per pulse by default).
+    
+    For each pulse (including BAKE), exports at:
+    - Start of ramp-up
+    - Middle of steady-state
+    - End of ramp-down
+    
+    Args:
+        scenario: Scenario with pulse sequence
+        samples_per_pulse: Number of samples per pulse (default: 3)
+        
+    Returns:
+        List of export times in seconds
+    """
+    export_times = []
+    current_time = 0.0
+    
+    for pulse in scenario.pulses:
+        for _ in range(pulse.nb_pulses):
+            # Calculate key times within this pulse occurrence
+            pulse_duration = pulse.total_duration
+            ramp_up = pulse.ramp_up
+            steady_state = pulse.steady_state
+            ramp_down = pulse.ramp_down
+            
+            if samples_per_pulse == 3:
+                # Export at: start of ramp-up, middle of steady-state, end of ramp-down
+                t1 = current_time  # Start of ramp-up
+                t2 = current_time + ramp_up + steady_state / 2  # Middle of steady-state
+                t3 = current_time + pulse_duration  # End of ramp-down (end of pulse)
+                
+                export_times.extend([t1, t2, t3])
+            else:
+                # Generic sampling: evenly spaced within pulse
+                for i in range(samples_per_pulse):
+                    t = current_time + (i + 0.5) * pulse_duration / samples_per_pulse
+                    export_times.append(t)
+            
+            current_time += pulse_duration
+    
+    return export_times
+
+
 def make_surface_concentration_time_function(
     T_fun: Callable,
     flux_fun: Callable,
@@ -512,11 +557,41 @@ def make_dynamic_mb_model(
     # --- QUANTITIES TO TRACK ---
     quantities = {}
     
+    # Compute export times for profiles (3 per pulse)
+    # Import scenario from occurrences if available, otherwise use final_time to estimate
+    profile_export_times = None
+    if occurrences and len(occurrences) > 0:
+        # Reconstruct a minimal scenario-like object from occurrences
+        # This is a workaround since we don't have direct access to scenario here
+        # We'll compute times manually from occurrences
+        profile_export_times = []
+        for occ in occurrences:
+            pulse = occ['pulse']
+            start_time = occ['start']
+            ramp_up = pulse.ramp_up
+            steady_state = pulse.steady_state
+            pulse_duration = pulse.total_duration
+            
+            # Export at: start of ramp-up, middle of steady-state, end of ramp-down
+            t1 = start_time  # Start of ramp-up
+            t2 = start_time + ramp_up + steady_state / 2  # Middle of steady-state
+            t3 = start_time + pulse_duration  # End of ramp-down (end of pulse)
+            
+            profile_export_times.extend([t1, t2, t3])
+    
     # Add total volume for each species
     for species in my_model.species:
         quantity = F.TotalVolume(field=species, volume=volume_subdomain)
         my_model.exports.append(quantity)
         quantities[species.name] = quantity
+        
+        # Add 1D profile for each species with times parameter
+        if profile_export_times:
+            profile = F.Profile1D(field=species, subdomain=volume_subdomain, times=profile_export_times)
+        else:
+            profile = F.Profile1D(field=species, subdomain=volume_subdomain)
+        my_model.exports.append(profile)
+        quantities[f"{species.name}_profile"] = profile
         
         # Add surface flux for mobile species at inlet and outlet
         if species.mobile:
