@@ -804,6 +804,33 @@ def calculate_temperature_W(
     b = T_surface
     return a * x + b
 
+def calculate_temperature_SS(x: float | NDArray, heat_flux: float, coolant_temp: float, thickness: float) -> float | NDArray:
+    """
+    Calculates the temperature in the SS layer based on coolant temperature and heat flux.
+    The temperature is assumed to vary linearly from the plasma-facing surface to the rear surface.
+
+    It takes into account that at 0.35MW/m2, the PFS of SS is at 250C and the backside at 175C.  
+    Then we scale linearly those values with the heat flux, taking into account the base temperature of 70C
+
+    Args:
+        x: position in m
+        heat_flux: heat flux in W/m2
+        coolant_temp: coolant temperature in K
+        thickness: thickness of the SS layer in m
+
+    Returns:
+        temperature in K (float if x is float, NDArray if x is NDArray)
+    """
+    # the evolution of T surface is taken from Delaporte-Mathurin et al. Sci Rep 10, 17798 (2020).
+    # https://doi.org/10.1038/s41598-020-74844-w
+    T_plasmasurf_SS = heat_flux/3.5E5 * (250-70) + coolant_temp
+    T_rearsurf_SS = heat_flux/3.5E5 * (175-70) + coolant_temp
+    
+    # Linear interpolation between plasma-facing surface and rear surface
+    a = (T_rearsurf_SS - T_plasmasurf_SS) / thickness
+    b = T_plasmasurf_SS
+    return a * x + b
+
 
 def calculate_temperature_B(heat_flux: float, coolant_temp: float) -> float:
     """
@@ -881,11 +908,13 @@ def make_temperature_function(
             )
             # Handle both string materials and Material objects
             material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
-            if (
-                material_name == "W" or material_name == "SS"
-            ):  # FIXME: update ss temp when gven data:
+            if material_name == "W":
                 value = calculate_temperature_W(
                     x[0], heat_flux, coolant_temp, bin.thickness, bin.copper_thickness
+                )
+            elif material_name == "SS":
+                value = calculate_temperature_SS(
+                    x[0], heat_flux, coolant_temp, bin.thickness
                 )
             elif material_name == "B":
                 T_value = calculate_temperature_B(heat_flux, coolant_temp)
