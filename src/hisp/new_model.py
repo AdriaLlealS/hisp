@@ -13,7 +13,6 @@ import numpy as np
 from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.scenario import Scenario
 from hisp.festim_models.new_mb_model import make_model_with_scenario
-from hisp.bin import BINS_MESHES
 
 import festim as F
 
