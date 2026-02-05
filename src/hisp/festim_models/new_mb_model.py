@@ -236,6 +236,7 @@ def make_dynamic_mb_model(
     tritium_atom_flux: Callable,
     final_time: float,
     folder: str,
+    mesh=None,
     occurrences: list = None,  # Optional: Pre-computed flux occurrences with steady-state values
     exports: bool = False,
     profile_export: bool = True,  # Optional: Whether to export 1D concentration profiles
@@ -252,6 +253,8 @@ def make_dynamic_mb_model(
         tritium_atom_flux: Tritium atom flux function (part/m^2/s)
         final_time: Final simulation time (s)
         folder: Output folder for results
+        mesh: Optional pre-computed mesh vertices array. If None, mesh is generated from bin.thickness
+        occurrences: Optional pre-computed flux occurrences with steady-state values
         exports: Whether to export detailed outputs
         profile_export: Whether to export 1D concentration profiles (default: True)
         
@@ -300,7 +303,14 @@ def make_dynamic_mb_model(
     
     # --- GEOMETRY AND MESH ---
     L = bin.thickness  # Domain length from bin
-    vertices = graded_vertices(L=L, h0=1e-10, r=1.05)
+    if mesh is not None:
+        # Use provided mesh from bins_meshes
+        vertices = mesh
+        print(f"Using provided mesh for bin {bin.bin_number}: {len(vertices)} vertices")
+    else:
+        # Generate mesh using default parameters
+        vertices = graded_vertices(L=L, h0=1e-10, r=1.05)
+        print(f"Generated mesh for bin {bin.bin_number}: {len(vertices)} vertices")
     my_model.mesh = F.Mesh1D(vertices)
     
     # --- MATERIAL ---
@@ -625,6 +635,7 @@ def make_model_with_scenario(
     scenario: Scenario,
     plasma_data_handling: PlasmaDataHandling,
     coolant_temp: float,
+    mesh=None,
     exports: bool = False,
     profile_export: bool = False,
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
@@ -636,6 +647,7 @@ def make_model_with_scenario(
         scenario: Scenario with pulse sequence
         plasma_data_handling: PlasmaDataHandling for flux/heat data
         coolant_temp: Coolant temperature (K)
+        mesh: Optional pre-computed mesh vertices array. If None, mesh is generated from bin.thickness
         exports: Whether to export detailed outputs
         profile_export: Whether to export 1D concentration profiles (default: True)
         
@@ -705,6 +717,7 @@ def make_model_with_scenario(
         tritium_atom_flux=tritium_atom_flux,
         final_time=scenario.get_maximum_time(),
         folder=f"results_bin_{bin.bin_number}",
+        mesh=mesh,
         occurrences=occurrences,
         exports=exports,
         profile_export=profile_export,

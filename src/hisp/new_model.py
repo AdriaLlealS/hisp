@@ -13,6 +13,7 @@ import numpy as np
 from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.scenario import Scenario
 from hisp.festim_models.new_mb_model import make_model_with_scenario
+from hisp.bin import BINS_MESHES
 
 import festim as F
 
@@ -28,6 +29,7 @@ class NewModel:
         scenario: Scenario,
         plasma_data_handling: PlasmaDataHandling,
         coolant_temp: float = 343.0,
+        bins_meshes: Dict = None,
     ):
         """
         Initialize the model runner.
@@ -37,11 +39,14 @@ class NewModel:
             scenario: Scenario with pulse sequence
             plasma_data_handling: Plasma data handler for flux/heat
             coolant_temp: Coolant temperature (K)
+            bins_meshes: Dictionary of MeshBin objects keyed by bin_id (optional, defaults to BINS_MESHES)
         """
         self.reactor = reactor
         self.scenario = scenario
         self.plasma_data_handling = plasma_data_handling
         self.coolant_temp = coolant_temp
+        # Use provided bins_meshes or fall back to imported BINS_MESHES
+        self.bins_meshes = bins_meshes if bins_meshes is not None else BINS_MESHES
         
     def run_bin(self, bin, exports: bool = False) -> Tuple[F.HydrogenTransportProblem, Dict]:
         """
@@ -63,6 +68,11 @@ class NewModel:
         print(f"  Surface area: {bin.surface_area:.4f} m²")
         print(f"{'='*60}")
         
+        # Get mesh for this bin if available
+        mesh = None
+        if bin.bin_id in self.bins_meshes:
+            mesh = self.bins_meshes[bin.bin_id].mesh
+        
         # Create FESTIM model using new_mb_model
         try:
             my_model, quantities = make_model_with_scenario(
@@ -70,6 +80,7 @@ class NewModel:
                 scenario=self.scenario,
                 plasma_data_handling=self.plasma_data_handling,
                 coolant_temp=self.coolant_temp,
+                mesh=mesh,
                 exports=exports,
             )
         except Exception as e:

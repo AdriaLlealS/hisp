@@ -72,11 +72,22 @@ except ImportError as e:
         f"Tried: {tried}. {hint} Error: {e}"
     )
 
+# Also import BINS_MESHES from the meshing module in PFC-Tritium-Transport
+try:
+    from meshing import BINS_MESHES, MeshBin
+except ImportError as e:
+    tried = ", ".join(str(p) for p in unique_candidates)
+    hint = "Set env var PFC_TT_PATH to your PFC-Tritium-Transport folder."
+    raise ImportError(
+        "Could not import BINS_MESHES from PFC-Tritium-Transport meshing module. "
+        f"Tried: {tried}. {hint} Error: {e}"
+    )
+
 # For backwards compatibility, re-export the imported classes
 # Re-export the new names
-__all__ = ['BinConfiguration', 'Bin', 'BinCollection', 'Reactor', 'Material']
+__all__ = ['BinConfiguration', 'Bin', 'BinCollection', 'Reactor', 'Material', 'BINS_MESHES', 'MeshBin']
 
-# These classes are imported from PFC-Tritium-Transport/csv_bin.py
+# These classes are imported from PFC-Tritium-Transport/csv_bin.py and meshing/bin_meshing.py
 # =============================================================================
 
 # NOTE: Monkeypatch removed - new code expects bin.material to be a Material object
