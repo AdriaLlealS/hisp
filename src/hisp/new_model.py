@@ -45,8 +45,7 @@ class NewModel:
         self.scenario = scenario
         self.plasma_data_handling = plasma_data_handling
         self.coolant_temp = coolant_temp
-        # Use provided bins_meshes or fall back to imported BINS_MESHES
-        self.bins_meshes = bins_meshes if bins_meshes is not None else BINS_MESHES
+        self.bins_meshes = bins_meshes if bins_meshes is not None else {}
         
     def run_bin(self, bin, exports: bool = False) -> Tuple[F.HydrogenTransportProblem, Dict]:
         """
