@@ -92,7 +92,7 @@ class NewModel:
         
         # Set up milestones for adaptive timestepping
         bin_config = bin.bin_configuration
-        initial_stepsize = 1e-3
+        initial_stepsize = 1e-2
         milestones = self._make_milestones(initial_stepsize)
         milestones.append(my_model.settings.final_time)
         my_model.settings.stepsize.milestones = milestones
