@@ -630,7 +630,11 @@ def make_dynamic_mb_model(
             profile_export_times.extend([t1, t2, t3])
     
     # Apply custom export timing logic with 50s minimum separation
+    # Reset the state for this simulation
+    custom_is_it_time_to_export.last_exported_time = None
     fh.is_it_time_to_export = custom_is_it_time_to_export
+    # Also patch it in the festim module directly
+    F.helpers.is_it_time_to_export = custom_is_it_time_to_export
     
     # Add total volume for each species
     for species in my_model.species:
