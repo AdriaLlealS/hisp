@@ -71,6 +71,12 @@ class NewModel:
         if bin.bin_id in self.bins_meshes:
             mesh = self.bins_meshes[bin.bin_id].mesh
         
+        # Set up milestones for adaptive timestepping (before model creation for profile exports)
+        bin_config = bin.bin_configuration
+        initial_stepsize = 1e-2
+        milestones = self._make_milestones(initial_stepsize)
+        milestones.append(self.scenario.get_maximum_time())  # Include final time for both milestones and profile export
+        
         # Create FESTIM model using new_mb_model
         try:
             my_model, quantities = make_model_with_scenario(
@@ -80,6 +86,8 @@ class NewModel:
                 coolant_temp=self.coolant_temp,
                 mesh=mesh,
                 exports=exports,
+                profile_export=True,
+                milestones=milestones,
             )
         except Exception as e:
             print(f"ERROR: Failed to create model for bin {bin.bin_number}: {e}")
@@ -90,11 +98,7 @@ class NewModel:
         for qty_name, qty in quantities.items():
             my_model.exports.append(qty)
         
-        # Set up milestones for adaptive timestepping
-        bin_config = bin.bin_configuration
-        initial_stepsize = 1e-2
-        milestones = self._make_milestones(initial_stepsize)
-        milestones.append(my_model.settings.final_time)
+        # Apply milestones to model (already includes final_time)
         my_model.settings.stepsize.milestones = milestones
         
         # Adaptivity settings
