@@ -9,7 +9,6 @@ from typing import Callable, Tuple, Dict, Union, List, Optional
 from numpy.typing import NDArray
 import numpy as np
 import festim as F
-import festim.helpers as fh
 import scipy.stats
 from hisp.scenario import Scenario
 from hisp.plasma_data_handling import PlasmaDataHandling
@@ -36,42 +35,6 @@ kB_J = 1.380649e-23      # J/K
 eV_to_J = 1.602176634e-19  # J/eV
 implantation_range = 3e-9  # m (TODO: make this depend on incident energy)
 width = 1e-9  # m (implantation distribution sigma)
-
-
-def custom_is_it_time_to_export(
-    times: list | None, current_time: float, atol=0, rtol=1.0e-5
-) -> bool:
-    """
-    Custom export function with 50s minimum separation between exports.
-    
-    Checks if the exported field should be written to a file based on:
-    1. Current time is close to a requested export time (within tolerance)
-    2. At least 50s has passed since the last export
-    
-    Args:
-        times: the times at which the field should be exported, if None, returns True
-        current_time: the current simulation time
-        atol: absolute tolerance for time comparison
-        rtol: relative tolerance for time comparison
-        
-    Returns:
-        bool: True if the exported field should be written to a file, else False
-    """
-    # Initialize last_exported_time attribute if it doesn't exist
-    if not hasattr(custom_is_it_time_to_export, 'last_exported_time'):
-        custom_is_it_time_to_export.last_exported_time = None
-    
-    if times is None:
-        return True
-
-    for time in times:
-        if np.isclose(time, current_time, atol=atol, rtol=rtol):
-            # Additional condition: ensure at least 50s separation from last export
-            if custom_is_it_time_to_export.last_exported_time is None or abs(current_time - custom_is_it_time_to_export.last_exported_time) >= 50.0:
-                custom_is_it_time_to_export.last_exported_time = current_time
-                return True
-
-    return False
 
 
 def graded_vertices(L, h0, r):
@@ -611,7 +574,7 @@ def make_dynamic_mb_model(
     profile_export_times = None
     if milestones is not None:
         # Use milestones directly as profile export times
-        profile_export_times = milestones
+        profile_export_times = sorted(milestones)
     elif occurrences and len(occurrences) > 0:
         # Fallback: compute times from occurrences (3 per pulse)
         profile_export_times = []
@@ -628,13 +591,6 @@ def make_dynamic_mb_model(
             t3 = start_time + pulse_duration  # End of ramp-down (end of pulse)
             
             profile_export_times.extend([t1, t2, t3])
-    
-    # Apply custom export timing logic with 50s minimum separation
-    # Reset the state for this simulation
-    custom_is_it_time_to_export.last_exported_time = None
-    fh.is_it_time_to_export = custom_is_it_time_to_export
-    # Also patch it in the festim module directly
-    F.helpers.is_it_time_to_export = custom_is_it_time_to_export
     
     # Add total volume for each species
     for species in my_model.species:

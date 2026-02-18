@@ -93,10 +93,11 @@ class NewModel:
             print(f"ERROR: Failed to create model for bin {bin.bin_number}: {e}")
             raise
         
-        # Add derived quantities to model
+        # Add derived quantities to model (skip if already in exports)
         my_model.exports = my_model.exports if hasattr(my_model, 'exports') and my_model.exports else []
         for qty_name, qty in quantities.items():
-            my_model.exports.append(qty)
+            if qty not in my_model.exports:
+                my_model.exports.append(qty)
         
         # Apply milestones to model (already includes final_time)
         my_model.settings.stepsize.milestones = milestones
