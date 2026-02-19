@@ -15,14 +15,15 @@ class CustomProblem(F.HydrogenTransportProblem):
         self.min_profile_export_dt = 50.0  # minimum seconds between profile exports
 
     def _is_it_time_to_export_profile(self, current_time, times):
-        """Custom export check for Profile1DExport with minimum time separation."""
+        """Pure check for Profile1DExport timing with minimum time separation.
+        Does NOT update _last_profile_export_time (no side effects).
+        """
         if not is_it_time_to_export(current_time=current_time, times=times):
             return False
         # enforce minimum time separation
         if self._last_profile_export_time is not None:
             if abs(current_time - self._last_profile_export_time) < self.min_profile_export_dt:
                 return False
-        self._last_profile_export_time = current_time
         return True
 
     def post_processing(self):
@@ -37,13 +38,24 @@ class CustomProblem(F.HydrogenTransportProblem):
                         export.D.interpolate(export.D_expr)
                         species_not_updated.remove(export.field)
 
+        # Determine once per timestep whether profiles should be exported.
+        # Using the first Profile1DExport with times as the representative check.
+        # This ensures ALL species profiles are exported together (or not at all).
+        _export_profiles_this_step = False
         for export in self.exports:
-            # For Profile1DExport, use custom timing with minimum separation
+            if isinstance(export, F.Profile1DExport) and hasattr(export, "times"):
+                if self._is_it_time_to_export_profile(
+                    current_time=float(self.t), times=export.times
+                ):
+                    _export_profiles_this_step = True
+                    self._last_profile_export_time = float(self.t)
+                break  # one check is enough; all profiles share the same timing
+
+        for export in self.exports:
+            # For Profile1DExport, use the pre-computed per-step decision
             if isinstance(export, F.Profile1DExport):
                 if hasattr(export, "times"):
-                    if not self._is_it_time_to_export_profile(
-                        current_time=float(self.t), times=export.times
-                    ):
+                    if not _export_profiles_this_step:
                         continue
                 # compute profile
                 if export._dofs is None:
