@@ -240,6 +240,7 @@ def make_dynamic_mb_model(
     occurrences: list = None,  # Optional: Pre-computed flux occurrences with steady-state values
     exports: bool = False,
     profile_export: bool = True,  # Optional: Whether to export 1D concentration profiles
+    milestones: list = None,  # Optional: Milestones for adaptive timestepping, also used as profile export times
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model dynamically based on bin properties.
@@ -569,13 +570,13 @@ def make_dynamic_mb_model(
     # --- QUANTITIES TO TRACK ---
     quantities = {}
     
-    # Compute export times for profiles (3 per pulse)
-    # Import scenario from occurrences if available, otherwise use final_time to estimate
+    # Use milestones as profile export times if provided, otherwise calculate from occurrences
     profile_export_times = None
-    if occurrences and len(occurrences) > 0:
-        # Reconstruct a minimal scenario-like object from occurrences
-        # This is a workaround since we don't have direct access to scenario here
-        # We'll compute times manually from occurrences
+    if milestones is not None:
+        # Use milestones directly as profile export times
+        profile_export_times = sorted(milestones)
+    elif occurrences and len(occurrences) > 0:
+        # Fallback: compute times from occurrences (3 per pulse)
         profile_export_times = []
         for occ in occurrences:
             pulse = occ['pulse']
@@ -638,6 +639,7 @@ def make_model_with_scenario(
     mesh=None,
     exports: bool = False,
     profile_export: bool = False,
+    milestones: list = None,
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model using scenario-based flux and temperature functions.
@@ -721,6 +723,7 @@ def make_model_with_scenario(
         occurrences=occurrences,
         exports=exports,
         profile_export=profile_export,
+        milestones=milestones,
     )
 
 #Helper functions block to create temperature profiles and flux functions 
