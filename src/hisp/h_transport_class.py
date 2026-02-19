@@ -12,7 +12,7 @@ class CustomProblem(F.HydrogenTransportProblem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._last_profile_export_time = None
-        self.min_profile_export_dt = 50.0  # minimum seconds between profile exports
+        self.min_profile_export_dt = 10.0  # minimum seconds between profile exports
 
     def _is_it_time_to_export_profile(self, current_time, times):
         """Pure check for Profile1DExport timing with minimum time separation.
