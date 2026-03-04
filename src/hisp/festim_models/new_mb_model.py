@@ -806,7 +806,7 @@ def calculate_temperature_W(
 
     # T_surface and T_rear calculations taken from tungsten/copper calculations
     # provided by T. Wauters
-    if copper_thickness is not None:
+    if copper_thickness is not None and copper_thickness > 0:
         T_surface, T_rear = tungsten_slab_temperature(
             q_front=heat_flux, D_W=thickness, D_Cu=copper_thickness, T_cool=coolant_temp
         )
