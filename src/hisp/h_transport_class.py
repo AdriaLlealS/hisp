@@ -11,20 +11,27 @@ class CustomProblem(F.HydrogenTransportProblem):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._last_profile_export_time = None
-        self.min_profile_export_dt = 10.0  # minimum seconds between profile exports
+        self._remaining_profile_export_times = None  # populated from export.times on first call
 
     def _is_it_time_to_export_profile(self, current_time, times):
-        """Pure check for Profile1DExport timing with minimum time separation.
-        Does NOT update _last_profile_export_time (no side effects).
+        """Check whether current_time matches an outstanding profile export time.
+
+        On first call, builds a sorted auxiliary list from *times* so that
+        consuming entries does not mutate the original export.times list.
+        When a match is found the entry is removed from the auxiliary list
+        so it cannot trigger a second export.
         """
-        if not is_it_time_to_export(current_time=current_time, times=times):
-            return False
-        # enforce minimum time separation
-        if self._last_profile_export_time is not None:
-            if abs(current_time - self._last_profile_export_time) < self.min_profile_export_dt:
-                return False
-        return True
+        # lazily build the auxiliary list (copy so original is untouched)
+        if self._remaining_profile_export_times is None:
+            self._remaining_profile_export_times = sorted(list(times)) if times else []
+
+        # walk through remaining times and pop the first match
+        for i, t_export in enumerate(self._remaining_profile_export_times):
+            if np.isclose(t_export, current_time, atol=0, rtol=1.0e-5):
+                self._remaining_profile_export_times.pop(i)
+                return True
+
+        return False
 
     def post_processing(self):
         """Override post_processing to use custom export timing for Profile1DExport."""
@@ -48,7 +55,6 @@ class CustomProblem(F.HydrogenTransportProblem):
                     current_time=float(self.t), times=export.times
                 ):
                     _export_profiles_this_step = True
-                    self._last_profile_export_time = float(self.t)
                 break  # one check is enough; all profiles share the same timing
 
         for export in self.exports:
