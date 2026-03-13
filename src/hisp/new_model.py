@@ -73,7 +73,7 @@ class NewModel:
         
         # Set up milestones for adaptive timestepping (before model creation for profile exports)
         bin_config = bin.bin_configuration
-        initial_stepsize = 1e-2
+        initial_stepsize = 1e-3 if bin.material.name == "B" else 1e-2
         milestones = self._make_milestones(initial_stepsize)
         milestones.append(self.scenario.get_maximum_time())  # Include final time for both milestones and profile export
         

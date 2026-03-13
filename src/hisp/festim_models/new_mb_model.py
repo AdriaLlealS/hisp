@@ -626,7 +626,10 @@ def make_dynamic_mb_model(
         final_time=final_time,
     )
     
-    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
+    # Smaller initial stepsize for boron (thinner layers, stiffer problem)
+    stepsize_init = 1e-4 if bin.material.name == "B" else 1e-3
+    my_model.settings.stepsize = Stepsize(initial_value=stepsize_init)
+    print(f"[model] Initial stepsize: {stepsize_init}")
 
     # Use CG elements for traps (instead of FESTIM default DG)
     #my_model._element_for_traps = "CG"
