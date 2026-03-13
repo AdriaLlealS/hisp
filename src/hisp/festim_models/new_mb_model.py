@@ -630,7 +630,8 @@ def make_dynamic_mb_model(
 
     # Use CG elements for traps (instead of FESTIM default DG)
     my_model._element_for_traps = "CG"
-    
+    print(f"[model] Trap element type: {my_model._element_for_traps}")
+
     return my_model, quantities
 
 
