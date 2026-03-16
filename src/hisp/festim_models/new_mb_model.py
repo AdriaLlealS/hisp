@@ -632,7 +632,7 @@ def make_dynamic_mb_model(
     print(f"[model] Initial stepsize: {stepsize_init}")
 
     # Use CG elements for traps (instead of FESTIM default DG)
-    #my_model._element_for_traps = "CG"
+    my_model._element_for_traps = "CG"
     print(f"[model] Trap element type: {my_model._element_for_traps}")
 
     return my_model, quantities
