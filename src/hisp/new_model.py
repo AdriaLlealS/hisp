@@ -107,6 +107,44 @@ class NewModel:
         my_model.settings.stepsize.cutback_factor = 0.3
         my_model.settings.stepsize.target_nb_iterations = 4
         
+        # Apply max_stepsize from CSV bin configuration
+        # Use a time-dependent max_stepsize:
+        # - During FP active phase (ramp+steady+ramp): fp_max_stepsize
+        # - During FP waiting: max_stepsize_no_fp
+        # - During BAKE ramps: 500 s (to resolve ~0.7-1 K/step temperature changes)
+        # - During BAKE steady-state: 1000 s (constant temperature, diffusion-limited)
+        fp_max_dt = bin_config.fp_max_stepsize
+        no_fp_max_dt = bin_config.max_stepsize_no_fp
+        scenario_ref = self.scenario
+        
+        def max_stepsize_function(t):
+            pulse = scenario_ref.get_pulse(t)
+            t_rel = t - scenario_ref.get_time_start_current_pulse(t)
+            relative_time = t_rel % pulse.total_duration
+            
+            if pulse.pulse_type == "BAKE":
+                # During baking ramps, limit to 500s (~0.7-1 K per step)
+                # During baking steady-state, limit to 1000s (constant T)
+                if relative_time < pulse.ramp_up:
+                    return 500.0
+                elif relative_time < pulse.ramp_up + pulse.steady_state:
+                    return 1000.0
+                elif relative_time < pulse.ramp_up + pulse.steady_state + pulse.ramp_down:
+                    return 500.0
+                else:
+                    return no_fp_max_dt
+            elif pulse.pulse_type in ("FP", "FP_D"):
+                # During active plasma phase, use FP limit
+                if relative_time < pulse.duration_no_waiting:
+                    return fp_max_dt
+                else:
+                    return no_fp_max_dt
+            else:
+                return no_fp_max_dt
+        
+        my_model.settings.stepsize.max_stepsize = max_stepsize_function
+        print(f"[model] Max stepsize: FP={fp_max_dt:.1f} s, no-FP={no_fp_max_dt:.1f} s, BAKE-ramp=500 s, BAKE-steady=1000 s")
+        
         # Initialize and run
         print(f"Initializing FESTIM model...")
         my_model.initialise()

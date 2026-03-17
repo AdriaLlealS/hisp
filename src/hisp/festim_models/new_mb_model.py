@@ -622,7 +622,7 @@ def make_dynamic_mb_model(
     my_model.settings = CustomSettings(
         atol=bin_config.atol,
         rtol=bin_config.rtol,
-        max_iterations=100,
+        max_iterations=1000,
         final_time=final_time,
     )
     
