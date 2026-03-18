@@ -1,8 +1,16 @@
 import festim as F
-from festim.helpers import is_it_time_to_export
 
 import dolfinx.fem as fem
 import numpy as np
+
+
+def is_it_time_to_export(current_time, times):
+    """Local fallback for festim.helpers.is_it_time_to_export
+    (not available in older FESTIM versions)."""
+    for t in times:
+        if np.isclose(t, current_time, atol=0, rtol=1.0e-5):
+            return True
+    return False
 import ufl
 import basix
 
