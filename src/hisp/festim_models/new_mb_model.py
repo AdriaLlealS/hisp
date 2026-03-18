@@ -598,14 +598,14 @@ def make_dynamic_mb_model(
         my_model.exports.append(quantity)
         quantities[species.name] = quantity
         
-        # Add 1D profile for each species with times parameter (if profile_export is True)
-        if profile_export:
-            if profile_export_times:
-                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
-            else:
-                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
-            my_model.exports.append(profile)
-            quantities[f"{species.name}_profile"] = profile
+        # NOTE: Profile1DExport commented out for older FESTIM compatibility
+        # if profile_export:
+        #     if profile_export_times:
+        #         profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
+        #     else:
+        #         profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
+        #     my_model.exports.append(profile)
+        #     quantities[f"{species.name}_profile"] = profile
         
         # Add surface flux for mobile species at inlet and outlet
         if species.mobile:

@@ -53,36 +53,32 @@ class CustomProblem(F.HydrogenTransportProblem):
                         export.D.interpolate(export.D_expr)
                         species_not_updated.remove(export.field)
 
-        # Determine once per timestep whether profiles should be exported.
-        # Using the first Profile1DExport with times as the representative check.
-        # This ensures ALL species profiles are exported together (or not at all).
-        _export_profiles_this_step = False
-        for export in self.exports:
-            if isinstance(export, F.Profile1DExport) and hasattr(export, "times"):
-                if self._is_it_time_to_export_profile(
-                    current_time=float(self.t), times=export.times
-                ):
-                    _export_profiles_this_step = True
-                break  # one check is enough; all profiles share the same timing
+        # NOTE: Profile1DExport support commented out for older FESTIM compatibility
+        # _export_profiles_this_step = False
+        # for export in self.exports:
+        #     if isinstance(export, F.Profile1DExport) and hasattr(export, "times"):
+        #         if self._is_it_time_to_export_profile(
+        #             current_time=float(self.t), times=export.times
+        #         ):
+        #             _export_profiles_this_step = True
+        #         break
 
         for export in self.exports:
-            # For Profile1DExport, use the pre-computed per-step decision
-            if isinstance(export, F.Profile1DExport):
-                if hasattr(export, "times"):
-                    if not _export_profiles_this_step:
-                        continue
-                # compute profile
-                if export._dofs is None:
-                    index = self.species.index(export.field)
-                    V0, export._dofs = self.u.function_space.sub(index).collapse()
-                    coords = V0.tabulate_dof_coordinates()[:, 0]
-                    export._sort_coords = np.argsort(coords)
-                    export.x = coords[export._sort_coords]
-
-                c = self.u.x.array[export._dofs][export._sort_coords]
-                export.data.append(c)
-                export.t.append(float(self.t))
-                continue
+            # NOTE: Profile1DExport handling commented out for older FESTIM compatibility
+            # if isinstance(export, F.Profile1DExport):
+            #     if hasattr(export, "times"):
+            #         if not _export_profiles_this_step:
+            #             continue
+            #     if export._dofs is None:
+            #         index = self.species.index(export.field)
+            #         V0, export._dofs = self.u.function_space.sub(index).collapse()
+            #         coords = V0.tabulate_dof_coordinates()[:, 0]
+            #         export._sort_coords = np.argsort(coords)
+            #         export.x = coords[export._sort_coords]
+            #     c = self.u.x.array[export._dofs][export._sort_coords]
+            #     export.data.append(c)
+            #     export.t.append(float(self.t))
+            #     continue
 
             # For all other exports, use standard is_it_time_to_export
             if hasattr(export, "times"):
