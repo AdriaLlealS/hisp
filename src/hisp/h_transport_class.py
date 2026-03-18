@@ -43,7 +43,10 @@ class CustomProblem(F.HydrogenTransportProblem):
 
     def post_processing(self):
         """Override post_processing to use custom export timing for Profile1DExport."""
-        self.update_post_processing_solutions()
+        # Inline update_post_processing_solutions for older FESTIM compatibility
+        if self.multispecies:
+            for spe in self.species:
+                spe.post_processing_solution = spe.sub_function.collapse()
 
         if self.temperature_time_dependent:
             species_not_updated = self.species.copy()
