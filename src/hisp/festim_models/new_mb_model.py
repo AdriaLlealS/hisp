@@ -237,7 +237,7 @@ def make_dynamic_mb_model(
     folder: str,
     mesh=None,
     occurrences: list = None,  # Optional: Pre-computed flux occurrences with steady-state values
-    exports: bool = False,
+    exports: bool = True,
     profile_export: bool = True,  # Optional: Whether to export 1D concentration profiles
     milestones: list = None,  # Optional: Milestones for adaptive timestepping, also used as profile export times
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
@@ -557,10 +557,12 @@ def make_dynamic_mb_model(
     # --- EXPORTS ---
     if exports:
         my_model.exports = [
-            F.XDMFExport(
-                field="solute",
-                folder=folder,
-                checkpoint=False,
+            F.VTXSpeciesExport(
+                filename=f"{folder}/concentration.bp",
+                field=my_model.species,
+                subdomain=volume_subdomain,
+                checkpoint=True,
+                times=[final_time],
             ),
         ]
     else:
