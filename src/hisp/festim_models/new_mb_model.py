@@ -558,7 +558,7 @@ def make_dynamic_mb_model(
     if exports:
         my_model.exports = [
             F.VTXSpeciesExport(
-                filename=f"{folder}/concentration.bp",
+                filename=f"{folder}/checkpoint_id_{bin.bin_id}_bin_num_{bin.bin_number}.bp",
                 field=my_model.species,
                 subdomain=volume_subdomain,
                 checkpoint=True,
