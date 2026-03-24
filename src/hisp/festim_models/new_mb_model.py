@@ -15,7 +15,6 @@ from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.h_transport_class import CustomProblem
 from hisp.settings import CustomSettings
 from builtins import ValueError, bool, callable, float, int, isinstance, str, type
-from hisp.h_transport_class import CustomProblem
 from hisp.helpers import (
     PulsedSource,
     gaussian_distribution,
@@ -598,14 +597,20 @@ def make_dynamic_mb_model(
         my_model.exports.append(quantity)
         quantities[species.name] = quantity
         
-        # NOTE: Profile1DExport commented out for older FESTIM compatibility
-        # if profile_export:
-        #     if profile_export_times:
-        #         profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
-        #     else:
-        #         profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
-        #     my_model.exports.append(profile)
-        #     quantities[f"{species.name}_profile"] = profile
+        if profile_export:
+            if profile_export_times:
+                profile = F.Profile1DExport(
+                    field=species,
+                    subdomain=volume_subdomain,
+                    times=list(profile_export_times),  # copy: FESTIM pops matched times
+                )
+            else:
+                profile = F.Profile1DExport(
+                    field=species,
+                    subdomain=volume_subdomain,
+                )
+            my_model.exports.append(profile)
+            quantities[f"{species.name}_profile"] = profile
         
         # Add surface flux for mobile species at inlet and outlet
         if species.mobile:
