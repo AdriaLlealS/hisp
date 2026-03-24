@@ -46,13 +46,15 @@ class NewModel:
         self.coolant_temp = coolant_temp
         self.bins_meshes = bins_meshes if bins_meshes is not None else {}
         
-    def run_bin(self, bin, exports: bool = False) -> Tuple[F.HydrogenTransportProblem, Dict]:
+    def run_bin(self, bin, exports: bool = False, folder: str = None) -> Tuple[F.HydrogenTransportProblem, Dict]:
         """
         Run a FESTIM simulation for a single bin.
         
         Args:
             bin: Bin object to simulate
             exports: Whether to export XDMF files
+            folder: Output folder for VTX checkpoint files. If None, defaults to
+                    results_bin_{bin.bin_number} in the current working directory.
             
         Returns:
             Tuple of (festim_model, quantities_dict)
@@ -88,6 +90,7 @@ class NewModel:
                 exports=exports,
                 profile_export=True,
                 milestones=milestones,
+                folder=folder,
             )
         except Exception as e:
             print(f"ERROR: Failed to create model for bin {bin.bin_number}: {e}")

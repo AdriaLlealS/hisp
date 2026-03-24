@@ -654,6 +654,7 @@ def make_model_with_scenario(
     exports: bool = False,
     profile_export: bool = False,
     milestones: list = None,
+    folder: str = None,
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model using scenario-based flux and temperature functions.
@@ -724,6 +725,7 @@ def make_model_with_scenario(
         )
     
     # Create model
+    output_folder = folder if folder is not None else f"results_bin_{bin.bin_number}"
     return make_dynamic_mb_model(
         bin=bin,
         temperature=temperature_function,
@@ -732,7 +734,7 @@ def make_model_with_scenario(
         deuterium_atom_flux=deuterium_atom_flux,
         tritium_atom_flux=tritium_atom_flux,
         final_time=scenario.get_maximum_time(),
-        folder=f"results_bin_{bin.bin_number}",
+        folder=output_folder,
         mesh=mesh,
         occurrences=occurrences,
         exports=exports,
