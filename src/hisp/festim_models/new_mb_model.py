@@ -28,6 +28,7 @@ from ufl import conditional, lt, ge, And
 import h_transport_materials as htm
 from scipy.optimize import bisect
 import math
+import inspect
 
 # Constants
 kB_J = 1.380649e-23      # J/K
@@ -655,6 +656,7 @@ def make_model_with_scenario(
     profile_export: bool = False,
     milestones: list = None,
     folder: str = None,
+    temperature_model_overrides: Optional[Dict[str, Callable]] = None,
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model using scenario-based flux and temperature functions.
@@ -678,6 +680,7 @@ def make_model_with_scenario(
         plasma_data_handling=plasma_data_handling,
         bin=bin,
         coolant_temp=coolant_temp,
+        temperature_model_overrides=temperature_model_overrides,
     )
     
     # Check BC type to decide which flux function type to use
@@ -900,6 +903,7 @@ def make_temperature_function(
     plasma_data_handling: PlasmaDataHandling,
     bin,  # Accept any bin type (SubBin, DivBin, or CSVBin)
     coolant_temp: float,
+    temperature_model_overrides: Optional[Dict[str, Callable]] = None,
 ) -> Callable[[NDArray, float], NDArray]:
     """Returns a function that calculates the temperature of the bin based on time and position.
 
@@ -912,6 +916,51 @@ def make_temperature_function(
     Returns:
         a callable of x, t returning the temperature in K
     """
+
+    custom_models = {}
+    if temperature_model_overrides:
+        custom_models = {
+            str(material).upper(): fn
+            for material, fn in temperature_model_overrides.items()
+            if callable(fn)
+        }
+
+    def _evaluate_custom_temperature_model(model_fn: Callable, x_position, heat_flux: float, pulse, t_rel: float):
+        """
+        Evaluate a custom model with keyword-based compatibility.
+
+        The callable can accept any subset of these keywords:
+        x, heat_flux, coolant_temp, thickness, copper_thickness,
+        bin, pulse, t, scenario, plasma_data_handling.
+        """
+        available_kwargs = {
+            "x": x_position,
+            "heat_flux": heat_flux,
+            "coolant_temp": coolant_temp,
+            "thickness": bin.thickness,
+            "copper_thickness": getattr(bin, "copper_thickness", getattr(bin, "cu_thickness", None)),
+            "bin": bin,
+            "pulse": pulse,
+            "t": t_rel,
+            "scenario": scenario,
+            "plasma_data_handling": plasma_data_handling,
+        }
+
+        signature = inspect.signature(model_fn)
+        accepts_var_kwargs = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in signature.parameters.values()
+        )
+
+        if accepts_var_kwargs:
+            return model_fn(**available_kwargs)
+
+        filtered_kwargs = {
+            name: value
+            for name, value in available_kwargs.items()
+            if name in signature.parameters
+        }
+        return model_fn(**filtered_kwargs)
 
     def T_function(x: NDArray, t: float) -> NDArray:
         # Handle FESTIM 2.0 passing dolfinx.Constant instead of float
@@ -940,7 +989,21 @@ def make_temperature_function(
             )
             # Handle both string materials and Material objects
             material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
-            if material_name == "W":
+            material_name_key = str(material_name).upper()
+
+            if material_name_key in custom_models:
+                custom_value = _evaluate_custom_temperature_model(
+                    custom_models[material_name_key],
+                    x_position=x[0],
+                    heat_flux=heat_flux,
+                    pulse=pulse,
+                    t_rel=relative_time_within_pulse,
+                )
+                if np.isscalar(custom_value):
+                    value = np.full_like(x[0], float(custom_value))
+                else:
+                    value = np.asarray(custom_value)
+            elif material_name == "W":
                 value = calculate_temperature_W(
                     x[0], heat_flux, coolant_temp, bin.thickness, bin.copper_thickness
                 )
