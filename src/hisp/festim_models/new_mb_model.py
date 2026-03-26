@@ -21,7 +21,6 @@ from hisp.helpers import (
     Stepsize,
     periodic_pulse_function,
     gaussian_implantation_ufl,
-    XDMFExportEveryDt
 )
 import hisp.bin
 from ufl import conditional, lt, ge, And
