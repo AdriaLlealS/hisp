@@ -15,7 +15,6 @@ from hisp.plasma_data_handling import PlasmaDataHandling
 from hisp.h_transport_class import CustomProblem
 from hisp.settings import CustomSettings
 from builtins import ValueError, bool, callable, float, int, isinstance, str, type
-from hisp.h_transport_class import CustomProblem
 from hisp.helpers import (
     PulsedSource,
     gaussian_distribution,
@@ -238,7 +237,7 @@ def make_dynamic_mb_model(
     folder: str,
     mesh=None,
     occurrences: list = None,  # Optional: Pre-computed flux occurrences with steady-state values
-    exports: bool = False,
+    exports: bool = True,
     profile_export: bool = True,  # Optional: Whether to export 1D concentration profiles
     milestones: list = None,  # Optional: Milestones for adaptive timestepping, also used as profile export times
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
@@ -558,10 +557,12 @@ def make_dynamic_mb_model(
     # --- EXPORTS ---
     if exports:
         my_model.exports = [
-            F.XDMFExport(
-                field="solute",
-                folder=folder,
-                checkpoint=False,
+            F.VTXSpeciesExport(
+                filename=f"{folder}/checkpoint_id_{bin.bin_id}_bin_num_{bin.bin_number}.bp",
+                field=my_model.species,
+                subdomain=volume_subdomain,
+                checkpoint=True,
+                times=[final_time],
             ),
         ]
     else:
@@ -598,12 +599,18 @@ def make_dynamic_mb_model(
         my_model.exports.append(quantity)
         quantities[species.name] = quantity
         
-        # Add 1D profile for each species with times parameter (if profile_export is True)
         if profile_export:
             if profile_export_times:
-                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain, times=profile_export_times)
+                profile = F.Profile1DExport(
+                    field=species,
+                    subdomain=volume_subdomain,
+                    times=list(profile_export_times),  # copy: FESTIM pops matched times
+                )
             else:
-                profile = F.Profile1DExport(field=species, subdomain=volume_subdomain)
+                profile = F.Profile1DExport(
+                    field=species,
+                    subdomain=volume_subdomain,
+                )
             my_model.exports.append(profile)
             quantities[f"{species.name}_profile"] = profile
         
@@ -622,12 +629,19 @@ def make_dynamic_mb_model(
     my_model.settings = CustomSettings(
         atol=bin_config.atol,
         rtol=bin_config.rtol,
-        max_iterations=100,
+        max_iterations=1000,
         final_time=final_time,
     )
     
-    my_model.settings.stepsize = Stepsize(initial_value=1e-3)
-    my_model._element_for_traps = "CG"
+    # Smaller initial stepsize for boron (thinner layers, stiffer problem)
+    stepsize_init = 1e-4 if bin.material.name == "B" else 1e-3
+    my_model.settings.stepsize = Stepsize(initial_value=stepsize_init)
+    print(f"[model] Initial stepsize: {stepsize_init}")
+
+    # Use CG elements for traps (instead of FESTIM default DG)
+    #my_model._element_for_traps = "CG"
+    print(f"[model] Trap element type: {my_model._element_for_traps}")
+
     return my_model, quantities
 
 
@@ -640,6 +654,7 @@ def make_model_with_scenario(
     exports: bool = False,
     profile_export: bool = False,
     milestones: list = None,
+    folder: str = None,
 ) -> Tuple[F.HydrogenTransportProblem, Dict[str, F.TotalVolume]]:
     """
     Create a FESTIM model using scenario-based flux and temperature functions.
@@ -710,6 +725,7 @@ def make_model_with_scenario(
         )
     
     # Create model
+    output_folder = folder if folder is not None else f"results_bin_{bin.bin_number}"
     return make_dynamic_mb_model(
         bin=bin,
         temperature=temperature_function,
@@ -718,7 +734,7 @@ def make_model_with_scenario(
         deuterium_atom_flux=deuterium_atom_flux,
         tritium_atom_flux=tritium_atom_flux,
         final_time=scenario.get_maximum_time(),
-        folder=f"results_bin_{bin.bin_number}",
+        folder=output_folder,
         mesh=mesh,
         occurrences=occurrences,
         exports=exports,

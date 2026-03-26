@@ -46,13 +46,15 @@ class NewModel:
         self.coolant_temp = coolant_temp
         self.bins_meshes = bins_meshes if bins_meshes is not None else {}
         
-    def run_bin(self, bin, exports: bool = False) -> Tuple[F.HydrogenTransportProblem, Dict]:
+    def run_bin(self, bin, exports: bool = False, folder: str = None) -> Tuple[F.HydrogenTransportProblem, Dict]:
         """
         Run a FESTIM simulation for a single bin.
         
         Args:
             bin: Bin object to simulate
             exports: Whether to export XDMF files
+            folder: Output folder for VTX checkpoint files. If None, defaults to
+                    results_bin_{bin.bin_number} in the current working directory.
             
         Returns:
             Tuple of (festim_model, quantities_dict)
@@ -73,7 +75,7 @@ class NewModel:
         
         # Set up milestones for adaptive timestepping (before model creation for profile exports)
         bin_config = bin.bin_configuration
-        initial_stepsize = 1e-2
+        initial_stepsize = 1e-3 if bin.material.name == "B" else 1e-2
         milestones = self._make_milestones(initial_stepsize)
         milestones.append(self.scenario.get_maximum_time())  # Include final time for both milestones and profile export
         
@@ -88,6 +90,7 @@ class NewModel:
                 exports=exports,
                 profile_export=True,
                 milestones=milestones,
+                folder=folder,
             )
         except Exception as e:
             print(f"ERROR: Failed to create model for bin {bin.bin_number}: {e}")
@@ -106,6 +109,25 @@ class NewModel:
         my_model.settings.stepsize.growth_factor = 1.1
         my_model.settings.stepsize.cutback_factor = 0.3
         my_model.settings.stepsize.target_nb_iterations = 4
+        
+        # Apply max_stepsize from CSV bin configuration
+        # - During FP active phase (ramp+steady+ramp): fp_max_stepsize
+        # - During FP waiting / BAKE / other: max_stepsize_no_fp
+        fp_max_dt = bin_config.fp_max_stepsize
+        no_fp_max_dt = bin_config.max_stepsize_no_fp
+        scenario_ref = self.scenario
+        
+        def max_stepsize_function(t):
+            pulse = scenario_ref.get_pulse(t)
+            if pulse.pulse_type in ("FP", "FP_D"):
+                t_rel = t - scenario_ref.get_time_start_current_pulse(t)
+                relative_time = t_rel % pulse.total_duration
+                if relative_time < pulse.duration_no_waiting:
+                    return fp_max_dt
+            return no_fp_max_dt
+        
+        my_model.settings.stepsize.max_stepsize = max_stepsize_function
+        print(f"[model] Max stepsize: FP={fp_max_dt:.1f} s, no-FP/BAKE={no_fp_max_dt:.1f} s")
         
         # Initialize and run
         print(f"Initializing FESTIM model...")
