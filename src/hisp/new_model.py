@@ -7,7 +7,7 @@ This module provides a NewModel class that:
 3. Handles adaptive timestepping based on scenario pulses
 """
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Callable
 import numpy as np
 
 from hisp.plasma_data_handling import PlasmaDataHandling
@@ -29,6 +29,7 @@ class NewModel:
         plasma_data_handling: PlasmaDataHandling,
         coolant_temp: float = 343.0,
         bins_meshes: Dict = None,
+        temperature_model_overrides: Dict[str, Callable] | None = None,
     ):
         """
         Initialize the model runner.
@@ -39,12 +40,15 @@ class NewModel:
             plasma_data_handling: Plasma data handler for flux/heat
             coolant_temp: Coolant temperature (K)
             bins_meshes: Dictionary of MeshBin objects keyed by bin_id (optional, defaults to BINS_MESHES)
+            temperature_model_overrides: Optional mapping of material name to custom
+                temperature callable; only provided materials are overridden
         """
         self.reactor = reactor
         self.scenario = scenario
         self.plasma_data_handling = plasma_data_handling
         self.coolant_temp = coolant_temp
         self.bins_meshes = bins_meshes if bins_meshes is not None else {}
+        self.temperature_model_overrides = temperature_model_overrides if temperature_model_overrides is not None else {}
         
     def run_bin(self, bin, exports: bool = False, folder: str = None) -> Tuple[F.HydrogenTransportProblem, Dict]:
         """
@@ -91,6 +95,7 @@ class NewModel:
                 profile_export=True,
                 milestones=milestones,
                 folder=folder,
+                temperature_model_overrides=self.temperature_model_overrides,
             )
         except Exception as e:
             print(f"ERROR: Failed to create model for bin {bin.bin_number}: {e}")

@@ -1,4 +1,4 @@
-from .helpers import PulsedSource, gaussian_distribution, periodic_step_function, gaussian_implantation_ufl, XDMFExportEveryDt
+from .helpers import PulsedSource, gaussian_distribution, periodic_step_function, gaussian_implantation_ufl
 
 from .h_transport_class import CustomProblem
 
