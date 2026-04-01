@@ -64,7 +64,7 @@ class NewModel:
             Tuple of (festim_model, quantities_dict)
         """
         print(f"\n{'='*60}")
-        print(f"Running bin {bin.bin_number} (id={bin.bin_id})")
+        print(f"Running bin flux_id={bin.flux_id} (sim_id={bin.sim_id})")
         print(f"  Material: {bin.material.name}")
         print(f"  Mode: {bin.mode}")
         print(f"  Location: {bin.location}")
@@ -74,8 +74,8 @@ class NewModel:
         
         # Get mesh for this bin if available
         mesh = None
-        if bin.bin_id in self.bins_meshes:
-            mesh = self.bins_meshes[bin.bin_id].mesh
+        if bin.sim_id in self.bins_meshes:
+            mesh = self.bins_meshes[bin.sim_id].mesh
         
         # Set up milestones for adaptive timestepping (before model creation for profile exports)
         bin_config = bin.bin_configuration
