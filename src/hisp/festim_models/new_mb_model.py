@@ -506,8 +506,8 @@ def make_dynamic_mb_model(
     elif bc_rear == "Neumann - no flux":
         # Explicit Neumann / no-flux at outlet
         boundary_conditions.extend([
-            F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
-            F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
+            #F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
+            #F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
         ])
     else:
         raise ValueError(f"Unsupported rear BC: {bc_rear!r}")
