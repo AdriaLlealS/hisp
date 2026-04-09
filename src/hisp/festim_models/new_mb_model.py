@@ -149,7 +149,15 @@ def create_species_and_traps(
     
     n_traps = material.N_traps
     mat_density = material.Mat_density  # atoms/m³
-    print(f"\n=== DEBUG: Creating traps for {material.name} with N_traps={n_traps}, Mat_density={mat_density} ===")
+    print(f"\n=== DEBUG: Material '{material.name}' parameters ===")
+    print(f"  Diffusion:  D0={material.D0:.4e} m²/s,  E_D={material.E_D:.4f} eV")
+    _kr = getattr(material, 'K_R', None)
+    _er = getattr(material, 'E_R', None)
+    if _kr is not None:
+        print(f"  Recombination:  K_R={_kr:.4e},  E_R={_er}")
+    else:
+        print(f"  Recombination:  not set (will use defaults if Robin BC)")
+    print(f"  Mat_density={mat_density:.4e} atoms/m³,  N_traps={n_traps}")
     for i in range(1, n_traps + 1):
         # Get trap parameters
         trap_params = material.traps[i - 1]
@@ -315,6 +323,8 @@ def make_dynamic_mb_model(
     
     # --- MATERIAL ---
     material = bin.material
+    print(f"\n=== FESTIM Material (Bin {bin.bin_number}) ===")
+    print(f"  name={material.name}, D_0={material.D0:.4e} m²/s, E_D={material.E_D:.4f} eV")
     festim_material = F.Material(
         D_0=material.D0,
         E_D=material.E_D,
