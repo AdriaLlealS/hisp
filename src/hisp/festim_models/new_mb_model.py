@@ -974,12 +974,20 @@ def make_temperature_function(
         relative_time_within_pulse = t_rel % pulse.total_duration
 
         if pulse.pulse_type == "BAKE":
+            if scenario.baking_temp is None:
+                raise ValueError(
+                    "BAKE pulse encountered but scenario.baking_temp is None. "
+                    "Set baking_temp in the Scenario constructor."
+                )
             T_value = periodic_pulse_function(
                 relative_time_within_pulse,
                 pulse=pulse,
                 value=scenario.baking_temp,
                 value_off=coolant_temp,
             )
+            if not hasattr(T_function, '_bake_logged'):
+                print(f"[BAKE] baking_temp={scenario.baking_temp} K, coolant_temp={coolant_temp} K")
+                T_function._bake_logged = True
             value = np.full_like(x[0], T_value)
 
         else:
