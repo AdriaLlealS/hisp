@@ -977,8 +977,8 @@ def make_temperature_function(
             T_value = periodic_pulse_function(
                 relative_time_within_pulse,
                 pulse=pulse,
-                value=483.15,  # K
-                value_off=343.0,  # K
+                value=scenario.baking_temp,
+                value_off=coolant_temp,
             )
             value = np.full_like(x[0], T_value)
 
