@@ -509,6 +509,49 @@ def make_dynamic_mb_model(
             F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
             F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
         ])
+    elif bc_rear == "Robin - Surf. Rec.":
+        # Explicit Surface Recombination at outlet (same parameters as inlet for simplicity)
+        # --- Surface recombination (Robin-like) ---
+        # Read recombination parameters from material if available, otherwise use defaults
+        k_r0 = getattr(material, "K_R", 7.94e-17)
+        E_kr = getattr(material, "E_R", -2.0)
+        k_d0 = getattr(material, "k_d0", 0.0)
+        E_kd = getattr(material, "E_kd", 0.0)
+
+        surface_reaction_dd = F.SurfaceReactionBC(
+            reactant=[mobile_D, mobile_D],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=outlet,
+        )
+
+        surface_reaction_tt = F.SurfaceReactionBC(
+            reactant=[mobile_T, mobile_T],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=outlet,
+        )
+
+        surface_reaction_dt = F.SurfaceReactionBC(
+            reactant=[mobile_D, mobile_T],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=outlet,
+        )
+        boundary_conditions.extend([
+            surface_reaction_dd, 
+            surface_reaction_dt, 
+            surface_reaction_tt
+        ])
     else:
         raise ValueError(f"Unsupported rear BC: {bc_rear!r}")
 
