@@ -149,7 +149,15 @@ def create_species_and_traps(
     
     n_traps = material.N_traps
     mat_density = material.Mat_density  # atoms/m³
-    print(f"\n=== DEBUG: Creating traps for {material.name} with N_traps={n_traps}, Mat_density={mat_density} ===")
+    print(f"\n=== DEBUG: Material '{material.name}' parameters ===")
+    print(f"  Diffusion:  D0={material.D0:.4e} m²/s,  E_D={material.E_D:.4f} eV")
+    _kr = getattr(material, 'K_R', None)
+    _er = getattr(material, 'E_R', None)
+    if _kr is not None:
+        print(f"  Recombination:  K_R={_kr:.4e},  E_R={_er}")
+    else:
+        print(f"  Recombination:  not set (will use defaults if Robin BC)")
+    print(f"  Mat_density={mat_density:.4e} atoms/m³,  N_traps={n_traps}")
     for i in range(1, n_traps + 1):
         # Get trap parameters
         trap_params = material.traps[i - 1]
@@ -315,6 +323,8 @@ def make_dynamic_mb_model(
     
     # --- MATERIAL ---
     material = bin.material
+    print(f"\n=== FESTIM Material (Bin {bin.bin_number}) ===")
+    print(f"  name={material.name}, D_0={material.D0:.4e} m²/s, E_D={material.E_D:.4f} eV")
     festim_material = F.Material(
         D_0=material.D0,
         E_D=material.E_D,
@@ -508,6 +518,49 @@ def make_dynamic_mb_model(
         boundary_conditions.extend([
             #F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
             #F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
+        ])
+    elif bc_rear == "Robin - Surf. Rec.":
+        # Explicit Surface Recombination at outlet (same parameters as inlet for simplicity)
+        # --- Surface recombination (Robin-like) ---
+        # Read recombination parameters from material if available, otherwise use defaults
+        k_r0 = getattr(material, "K_R", 7.94e-17)
+        E_kr = getattr(material, "E_R", -2.0)
+        k_d0 = getattr(material, "k_d0", 0.0)
+        E_kd = getattr(material, "E_kd", 0.0)
+
+        surface_reaction_dd = F.SurfaceReactionBC(
+            reactant=[mobile_D, mobile_D],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=outlet,
+        )
+
+        surface_reaction_tt = F.SurfaceReactionBC(
+            reactant=[mobile_T, mobile_T],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=outlet,
+        )
+
+        surface_reaction_dt = F.SurfaceReactionBC(
+            reactant=[mobile_D, mobile_T],
+            gas_pressure=0,
+            k_r0=k_r0,
+            E_kr=E_kr,
+            k_d0=k_d0,
+            E_kd=E_kd,
+            subdomain=outlet,
+        )
+        boundary_conditions.extend([
+            surface_reaction_dd, 
+            surface_reaction_dt, 
+            surface_reaction_tt
         ])
     else:
         raise ValueError(f"Unsupported rear BC: {bc_rear!r}")
@@ -974,12 +1027,20 @@ def make_temperature_function(
         relative_time_within_pulse = t_rel % pulse.total_duration
 
         if pulse.pulse_type == "BAKE":
+            if scenario.baking_temp is None:
+                raise ValueError(
+                    "BAKE pulse encountered but scenario.baking_temp is None. "
+                    "Set baking_temp in the Scenario constructor."
+                )
             T_value = periodic_pulse_function(
                 relative_time_within_pulse,
                 pulse=pulse,
-                value=483.15,  # K
-                value_off=343.0,  # K
+                value=scenario.baking_temp,
+                value_off=coolant_temp,
             )
+            if not hasattr(T_function, '_bake_logged'):
+                print(f"[BAKE] baking_temp={scenario.baking_temp} K, coolant_temp={coolant_temp} K")
+                T_function._bake_logged = True
             value = np.full_like(x[0], T_value)
 
         else:
