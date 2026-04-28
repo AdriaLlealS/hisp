@@ -353,9 +353,10 @@ def make_dynamic_mb_model(
         # Find the trapped D species for this trap
         trap_D_species = next(s for s in species_list if s.name == f"trap{i}_D")
         initial_conditions.append(
-            F.InitialCondition(
+            F.InitialConcentration(
                 value=trap_density,
                 species=trap_D_species,
+                volume=volume_subdomain,
             )
         )
         print(f"Initial condition: trap{i}_D fully saturated at {trap_density:.3e} atoms/m³")
