@@ -344,23 +344,6 @@ def make_dynamic_mb_model(
     my_model.species = species_list
     my_model.reactions = reactions_list
     
-    # --- INITIAL CONDITIONS: Fully saturate all traps with Deuterium ---
-    initial_conditions = []
-    mat_density = material.Mat_density  # atoms/m³
-    for i in range(1, material.N_traps + 1):
-        trap_params = material.traps[i - 1]
-        trap_density = trap_params.Trap_density * mat_density  # atoms/m³
-        # Find the trapped D species for this trap
-        trap_D_species = next(s for s in species_list if s.name == f"trap{i}_D")
-        initial_conditions.append(
-            F.InitialCondition(
-                value=trap_density,
-                species=trap_D_species,
-            )
-        )
-        print(f"Initial condition: trap{i}_D fully saturated at {trap_density:.3e} atoms/m³")
-    my_model.initial_conditions = initial_conditions
-    
     # --- TEMPERATURE ---
     my_model.temperature = temperature
     
