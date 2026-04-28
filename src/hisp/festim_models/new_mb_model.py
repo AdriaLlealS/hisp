@@ -1044,10 +1044,10 @@ def make_temperature_function(
         t_rel = t - scenario.get_time_start_current_pulse(t)
         relative_time_within_pulse = t_rel % pulse.total_duration
 
-        if pulse.pulse_type == "BAKE":
+        if pulse.pulse_type in ("BAKE", "Bake+GDC"):
             if scenario.baking_temp is None:
                 raise ValueError(
-                    "BAKE pulse encountered but scenario.baking_temp is None. "
+                    f"{pulse.pulse_type} pulse encountered but scenario.baking_temp is None. "
                     "Set baking_temp in the Scenario constructor."
                 )
             T_value = periodic_pulse_function(
@@ -1057,7 +1057,7 @@ def make_temperature_function(
                 value_off=coolant_temp,
             )
             if not hasattr(T_function, '_bake_logged'):
-                print(f"[BAKE] baking_temp={scenario.baking_temp} K, coolant_temp={coolant_temp} K")
+                print(f"[{pulse.pulse_type}] baking_temp={scenario.baking_temp} K, coolant_temp={coolant_temp} K")
                 T_function._bake_logged = True
             value = np.full_like(x[0], T_value)
 
@@ -1162,7 +1162,10 @@ def compute_flux_values(scenario, plasma_data_handling, bin_):
     for pulse in scenario.pulses:
         for _ in range(pulse.nb_pulses):
             # Pick a time inside steady state
-            if pulse.steady_state > 0:
+            # For Bake+GDC: use GDC sub-timing to find the midpoint
+            if pulse.pulse_type == "Bake+GDC" and pulse.gdc_steady_state is not None:
+                t_rel = pulse.gdc_ramp_up + pulse.gdc_steady_state / 2
+            elif pulse.steady_state > 0:
                 t_rel = pulse.ramp_up + pulse.steady_state / 2
             else:
                 t_rel = pulse.total_duration / 2  # fallback if no steady state
@@ -1207,12 +1210,22 @@ def build_ufl_flux_expression(occurrences, value_off=0.0):
                 in_window = And(ge(t, start), lt(t, end))
                 t_rel = t - start
 
-                ramp_up_cond = lt(t_rel, p.ramp_up)
-                steady_cond = And(ge(t_rel, p.ramp_up), lt(t_rel, p.ramp_up + p.steady_state))
+                # For Bake+GDC: use GDC sub-timing for flux ramp profile
+                if p.pulse_type == "Bake+GDC" and getattr(p, 'gdc_ramp_up', None) is not None:
+                    ru = p.gdc_ramp_up
+                    ss = p.gdc_steady_state
+                    rd = p.gdc_ramp_down
+                else:
+                    ru = p.ramp_up
+                    ss = p.steady_state
+                    rd = p.ramp_down
+
+                ramp_up_cond = lt(t_rel, ru)
+                steady_cond = And(ge(t_rel, ru), lt(t_rel, ru + ss))
 
                 # Ramp-up and ramp-down expressions
-                ramp_up_expr = (occ[flux_key] - value_off) / p.ramp_up * t_rel + value_off if p.ramp_up > 0 else occ[flux_key]
-                ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / p.ramp_down * (t_rel - (p.ramp_up + p.steady_state)) if p.ramp_down > 0 else occ[flux_key]
+                ramp_up_expr = (occ[flux_key] - value_off) / ru * t_rel + value_off if ru > 0 else occ[flux_key]
+                ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / rd * (t_rel - (ru + ss)) if rd > 0 else occ[flux_key]
                 ramp_down_expr = conditional(ge(ramp_down_raw, value_off), ramp_down_raw, value_off)
 
                 pulse_flux = conditional(ramp_up_cond, ramp_up_expr,
