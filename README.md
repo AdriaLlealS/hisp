@@ -12,7 +12,11 @@ HISP receives bin definitions, material properties, time-dependent particle flux
 
 ## Dependencies
 
-HISP depends on [PFC-Tritium-Transport](https://github.com/iterorganization/PFC-Tritium-Transport) for bin definitions, material classes, scenario handling, and plasma data. It cannot be run without a local clone of that repository. All installation instructions are maintained there.
+HISP depends on:
+- [FESTIM](https://github.com/festim-dev/festim) — finite element solver for hydrogen transport, installed automatically via the PFC-TT conda environment
+- [PFC-Tritium-Transport](https://github.com/iterorganization/PFC-Tritium-Transport) — provides bin definitions, material classes, scenario handling, and plasma data. It cannot be run without a local clone of that repository.
+
+All dependencies are installed as part of the PFC-Tritium-Transport setup instructions below.
 
 ## How to Install
 
@@ -24,6 +28,7 @@ git clone --branch main https://github.com/iterorganization/PFC-Tritium-Transpor
 ```
 
 ### 2. Create the conda environment
+This step installs all core simulation dependencies including **FESTIM** (required by both PFC-Tritium-Transport and HISP), FEniCS-DOLFINx, PETSc, and all other required packages:
 ```bash
 conda config --set channel_priority flexible
 conda env create -f PFC-TT.yml
@@ -43,6 +48,7 @@ conda env config vars list
 ```
 
 ### 4. Install HISP
+HISP is installed without dependencies since FESTIM and all other requirements are already provided by the PFC-TT conda environment:
 ```bash
 pip install --no-deps git+https://github.com/AdriaLlealS/hisp.git@main
 pip install h_transport_materials
@@ -55,4 +61,3 @@ With the conda environment active and `PFC_TT_PATH` set:
 cd /path/to/hisp
 python -m pytest tests/ -v
 ```
-
