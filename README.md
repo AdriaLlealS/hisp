@@ -36,7 +36,7 @@ conda activate PFC-TT
 ```
 
 ### 3. Register the PFC-TT path
-HISP needs to know where PFC-Tritium-Transport is located. Register the path once in your conda environment (replace with your actual clone location):
+HISP imports bin definitions, material classes, and scenario handling directly from this repository at runtime. For this to work, HISP needs to know where PFC-Tritium-Transport is located on your system. Register the path once in your conda environment (replace with your actual clone location):
 ```bash
 conda env config vars set PFC_TT_PATH="/path/to/your/PFC-Tritium-Transport"
 conda deactivate && conda activate PFC-TT
