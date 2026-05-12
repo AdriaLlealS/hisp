@@ -156,10 +156,6 @@ def create_species_and_traps(
     else:
         print(f"  Recombination:  not set (will use defaults if Robin BC)")
     print(f"  Mat_density={mat_density:.4e} atoms/m³,  N_traps={n_traps}")
-    # --- Enhanced (damaged) trap density near PFS (DISABLED) ---
-    # Uncomment the following block to apply 10x trap density in the first 20 µm:
-    # ENHANCED_DEPTH = 20e-6  # m  (20 microns from PFS at x=0)
-    # ENHANCEMENT_FACTOR = 10.0
 
     for i in range(1, n_traps + 1):
         # Get trap parameters
@@ -169,21 +165,6 @@ def create_species_and_traps(
         
         # Debug output
         print(f"Trap {i}: Trap_density={trap_density} (from {trap_params.Trap_density} at.fr.), k_0={trap_params.k_0}, E_k={trap_params.E_k}, p_0={trap_params.p_0}, E_p={trap_params.E_p}")
-        
-        # --- Spatially-varying (damaged surface) trap density (DISABLED) ---
-        # To re-enable, uncomment the block below and use trap_density_fn instead of trap_density
-        # in the ImplicitSpecies n= argument.
-        # _n_base = float(trap_density)
-        # _n_enhanced = float(trap_density * ENHANCEMENT_FACTOR)
-        # _depth = float(ENHANCED_DEPTH)
-        #
-        # def _make_trap_density_fn(n_base, n_enhanced, depth):
-        #     """Factory to capture current loop values in a closure."""
-        #     def trap_density_fn(x):
-        #         return conditional(lt(x[0], depth), n_enhanced, n_base)
-        #     return trap_density_fn
-        #
-        # trap_density_fn = _make_trap_density_fn(_n_base, _n_enhanced, _depth)
 
         # Create trapped species for D and T in this trap
         trap_D = F.Species(f"trap{i}_D", mobile=False)
@@ -191,7 +172,6 @@ def create_species_and_traps(
         species_list.extend([trap_D, trap_T])
         
         # Create implicit species (empty trap) - shared by both D and T
-        # n = uniform trap density (use trap_density_fn for spatially-varying damaged surface)
         empty_trap = F.ImplicitSpecies(
             n=trap_density,
             others=[trap_T, trap_D],
@@ -362,24 +342,6 @@ def make_dynamic_mb_model(
     )
     my_model.species = species_list
     my_model.reactions = reactions_list
-
-    # --- INITIAL CONDITIONS: Fully saturate all traps with Deuterium ---
-    #initial_conditions = []
-    #mat_density = material.Mat_density  # atoms/m³
-    #for i in range(1, material.N_traps + 1):
-    #    trap_params = material.traps[i - 1]
-    #    trap_density = trap_params.Trap_density * mat_density  # atoms/m³
-    #    # Find the trapped D species for this trap
-    #    trap_D_species = next(s for s in species_list if s.name == f"trap{i}_D")
-    #    initial_conditions.append(
-    #        F.InitialConcentration(
-    #            value=trap_density,
-    #            species=trap_D_species,
-    #            volume=volume_subdomain,
-    #        )
-    #    )
-    #    print(f"Initial condition: trap{i}_D fully saturated at {trap_density:.3e} atoms/m³")
-    #my_model.initial_conditions = initial_conditions
     
     # --- TEMPERATURE ---
     my_model.temperature = temperature
