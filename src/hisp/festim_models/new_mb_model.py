@@ -274,10 +274,10 @@ def make_dynamic_mb_model(
     # bin.implantation_params should have structure:
     # {'ion': {'implantation_range': ..., 'width': ..., 'reflection_coefficient': ...},
     #  'atom': {...}}
-    implantation_params = getattr(bin, 'implantation_params', {
+    implantation_params = getattr(bin, 'implantation_params', None) or {
         'ion': {'implantation_range': implantation_range, 'width': width, 'reflection_coefficient': 0.0},
         'atom': {'implantation_range': implantation_range, 'width': width, 'reflection_coefficient': 0.0}
-    })
+    }
     
     # Get parameters (use defaults if not available)
     ion_range = implantation_params.get('ion', {}).get('implantation_range', implantation_range)
