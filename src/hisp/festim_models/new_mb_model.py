@@ -95,22 +95,11 @@ def make_surface_concentration_time_function(
     D0: float,
     E_eV: float,
     R_p: float,
+    flux_tot_fun: Callable = None,
+    Kr0: float = None,
+    E_Kr: float = None,
     surface_x: float = 0.0
 ) -> Callable[[float], float]:
-    """
-    Create a surface concentration function for Dirichlet BC.
-    
-    Args:
-        T_fun: Temperature function T(x, t) returning temperature in K
-        flux_fun: Flux function returning particle flux in part/m^2/s
-        D0: Diffusivity pre-exponential (m^2/s)
-        E_eV: Diffusion activation energy (eV)
-        R_p: Implantation range (m)
-        surface_x: Surface position (m)
-        
-    Returns:
-        Callable that returns surface concentration (part/m^3) at time t
-    """
     x_surf = np.array([[float(surface_x)]])
     E_J = float(E_eV) * eV_to_J
 
@@ -118,8 +107,17 @@ def make_surface_concentration_time_function(
         t = float(t)
         T_surf = float(T_fun(x_surf, t)[0])
         phi = float(flux_fun(t))
+        if phi == 0:
+            return 0.0
         D_T = D0 * np.exp(-E_J / (kB_J * T_surf))
         val = (phi * float(R_p)) / D_T
+        if Kr0 is not None and flux_tot_fun is not None:
+            phi_tot = float(flux_tot_fun(t))
+            if phi_tot > 0:
+                # Temperature-dependent recombination: Kr(T) = Kr0 * exp(-E_Kr / (kB * T))
+                E_Kr_J = float(E_Kr) * eV_to_J if E_Kr is not None else 0.0
+                Kr_T = Kr0 * np.exp(-E_Kr_J / (kB_J * T_surf))
+                val += phi / np.sqrt(Kr_T * phi_tot)
         return float(val)
     
     return c_S
@@ -158,6 +156,11 @@ def create_species_and_traps(
     else:
         print(f"  Recombination:  not set (will use defaults if Robin BC)")
     print(f"  Mat_density={mat_density:.4e} atoms/m³,  N_traps={n_traps}")
+    # --- Enhanced (damaged) trap density near PFS (DISABLED) ---
+    # Uncomment the following block to apply 10x trap density in the first 20 µm:
+    # ENHANCED_DEPTH = 20e-6  # m  (20 microns from PFS at x=0)
+    # ENHANCEMENT_FACTOR = 10.0
+
     for i in range(1, n_traps + 1):
         # Get trap parameters
         trap_params = material.traps[i - 1]
@@ -167,12 +170,28 @@ def create_species_and_traps(
         # Debug output
         print(f"Trap {i}: Trap_density={trap_density} (from {trap_params.Trap_density} at.fr.), k_0={trap_params.k_0}, E_k={trap_params.E_k}, p_0={trap_params.p_0}, E_p={trap_params.E_p}")
         
+        # --- Spatially-varying (damaged surface) trap density (DISABLED) ---
+        # To re-enable, uncomment the block below and use trap_density_fn instead of trap_density
+        # in the ImplicitSpecies n= argument.
+        # _n_base = float(trap_density)
+        # _n_enhanced = float(trap_density * ENHANCEMENT_FACTOR)
+        # _depth = float(ENHANCED_DEPTH)
+        #
+        # def _make_trap_density_fn(n_base, n_enhanced, depth):
+        #     """Factory to capture current loop values in a closure."""
+        #     def trap_density_fn(x):
+        #         return conditional(lt(x[0], depth), n_enhanced, n_base)
+        #     return trap_density_fn
+        #
+        # trap_density_fn = _make_trap_density_fn(_n_base, _n_enhanced, _depth)
+
         # Create trapped species for D and T in this trap
         trap_D = F.Species(f"trap{i}_D", mobile=False)
         trap_T = F.Species(f"trap{i}_T", mobile=False)
         species_list.extend([trap_D, trap_T])
         
         # Create implicit species (empty trap) - shared by both D and T
+        # n = uniform trap density (use trap_density_fn for spatially-varying damaged surface)
         empty_trap = F.ImplicitSpecies(
             n=trap_density,
             others=[trap_T, trap_D],
@@ -343,6 +362,24 @@ def make_dynamic_mb_model(
     )
     my_model.species = species_list
     my_model.reactions = reactions_list
+
+    # --- INITIAL CONDITIONS: Fully saturate all traps with Deuterium ---
+    #initial_conditions = []
+    #mat_density = material.Mat_density  # atoms/m³
+    #for i in range(1, material.N_traps + 1):
+    #    trap_params = material.traps[i - 1]
+    #    trap_density = trap_params.Trap_density * mat_density  # atoms/m³
+    #    # Find the trapped D species for this trap
+    #    trap_D_species = next(s for s in species_list if s.name == f"trap{i}_D")
+    #    initial_conditions.append(
+    #        F.InitialConcentration(
+    #            value=trap_density,
+    #            species=trap_D_species,
+    #            volume=volume_subdomain,
+    #        )
+    #    )
+    #    print(f"Initial condition: trap{i}_D fully saturated at {trap_density:.3e} atoms/m³")
+    #my_model.initial_conditions = initial_conditions
     
     # --- TEMPERATURE ---
     my_model.temperature = temperature
@@ -488,16 +525,25 @@ def make_dynamic_mb_model(
     elif bc_plasma_facing == "Dirichlet - Analyttical implantation approximation":
         # Use analytical surface concentration approximation (Dirichlet)
         # Use separate weighted ranges for D and T based on their respective flux ratios
+        def Gamma_tot(t):
+            return float(Gamma_D_total(t)) + float(Gamma_T_total(t))
+        
+        k_r0 = getattr(material, "K_R")
+        e_r = getattr(material, "E_R", 0.0)
+        
+
         def c_sD_time_dependent(t):
             weighted_range_d, _ = get_weighted_implantation_ranges(t)
             return make_surface_concentration_time_function(
-                temperature, Gamma_D_total, material.D0, material.E_D, weighted_range_d, surface_x=0.0
+                temperature, Gamma_D_total, material.D0, material.E_D, weighted_range_d,
+                flux_tot_fun=Gamma_tot, Kr0=k_r0, E_Kr=e_r, surface_x=0.0
             )(t)
         
         def c_sT_time_dependent(t):
             _, weighted_range_t = get_weighted_implantation_ranges(t)
             return make_surface_concentration_time_function(
-                temperature, Gamma_T_total, material.D0, material.E_D, weighted_range_t, surface_x=0.0
+                temperature, Gamma_T_total, material.D0, material.E_D, weighted_range_t,
+                flux_tot_fun=Gamma_tot, Kr0=k_r0, E_Kr=e_r, surface_x=0.0
             )(t)
         boundary_conditions.extend([
             F.FixedConcentrationBC(subdomain=inlet, value=c_sD_time_dependent, species="D"),
@@ -516,8 +562,8 @@ def make_dynamic_mb_model(
     elif bc_rear == "Neumann - no flux":
         # Explicit Neumann / no-flux at outlet
         boundary_conditions.extend([
-            F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
-            F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
+            #F.ParticleFluxBC(subdomain=outlet, value=0.0, species="D"),
+            #F.ParticleFluxBC(subdomain=outlet, value=0.0, species="T"),
         ])
     elif bc_rear == "Robin - Surf. Rec.":
         # Explicit Surface Recombination at outlet (same parameters as inlet for simplicity)
@@ -1026,10 +1072,10 @@ def make_temperature_function(
         t_rel = t - scenario.get_time_start_current_pulse(t)
         relative_time_within_pulse = t_rel % pulse.total_duration
 
-        if pulse.pulse_type == "BAKE":
+        if pulse.pulse_type in ("BAKE", "Bake+GDC"):
             if scenario.baking_temp is None:
                 raise ValueError(
-                    "BAKE pulse encountered but scenario.baking_temp is None. "
+                    f"{pulse.pulse_type} pulse encountered but scenario.baking_temp is None. "
                     "Set baking_temp in the Scenario constructor."
                 )
             T_value = periodic_pulse_function(
@@ -1039,7 +1085,7 @@ def make_temperature_function(
                 value_off=coolant_temp,
             )
             if not hasattr(T_function, '_bake_logged'):
-                print(f"[BAKE] baking_temp={scenario.baking_temp} K, coolant_temp={coolant_temp} K")
+                print(f"[{pulse.pulse_type}] baking_temp={scenario.baking_temp} K, coolant_temp={coolant_temp} K")
                 T_function._bake_logged = True
             value = np.full_like(x[0], T_value)
 
@@ -1144,7 +1190,10 @@ def compute_flux_values(scenario, plasma_data_handling, bin_):
     for pulse in scenario.pulses:
         for _ in range(pulse.nb_pulses):
             # Pick a time inside steady state
-            if pulse.steady_state > 0:
+            # For Bake+GDC: use GDC sub-timing to find the midpoint
+            if pulse.pulse_type == "Bake+GDC" and pulse.gdc_steady_state is not None:
+                t_rel = pulse.gdc_ramp_up + pulse.gdc_steady_state / 2
+            elif pulse.steady_state > 0:
                 t_rel = pulse.ramp_up + pulse.steady_state / 2
             else:
                 t_rel = pulse.total_duration / 2  # fallback if no steady state
@@ -1189,12 +1238,22 @@ def build_ufl_flux_expression(occurrences, value_off=0.0):
                 in_window = And(ge(t, start), lt(t, end))
                 t_rel = t - start
 
-                ramp_up_cond = lt(t_rel, p.ramp_up)
-                steady_cond = And(ge(t_rel, p.ramp_up), lt(t_rel, p.ramp_up + p.steady_state))
+                # For Bake+GDC: use GDC sub-timing for flux ramp profile
+                if p.pulse_type == "Bake+GDC" and getattr(p, 'gdc_ramp_up', None) is not None:
+                    ru = p.gdc_ramp_up
+                    ss = p.gdc_steady_state
+                    rd = p.gdc_ramp_down
+                else:
+                    ru = p.ramp_up
+                    ss = p.steady_state
+                    rd = p.ramp_down
+
+                ramp_up_cond = lt(t_rel, ru)
+                steady_cond = And(ge(t_rel, ru), lt(t_rel, ru + ss))
 
                 # Ramp-up and ramp-down expressions
-                ramp_up_expr = (occ[flux_key] - value_off) / p.ramp_up * t_rel + value_off if p.ramp_up > 0 else occ[flux_key]
-                ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / p.ramp_down * (t_rel - (p.ramp_up + p.steady_state)) if p.ramp_down > 0 else occ[flux_key]
+                ramp_up_expr = (occ[flux_key] - value_off) / ru * t_rel + value_off if ru > 0 else occ[flux_key]
+                ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / rd * (t_rel - (ru + ss)) if rd > 0 else occ[flux_key]
                 ramp_down_expr = conditional(ge(ramp_down_raw, value_off), ramp_down_raw, value_off)
 
                 pulse_flux = conditional(ramp_up_cond, ramp_up_expr,

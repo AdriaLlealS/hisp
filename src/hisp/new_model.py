@@ -184,6 +184,18 @@ class NewModel:
                     milestones.append(t_begin_real_pulse + pulse.total_duration * i)
                     milestones.append(t_begin_real_pulse + pulse.total_duration * i + 0.001)
 
+                # Bake+GDC: add milestones at GDC sub-pulse boundaries
+                if getattr(pulse, "pulse_type", None) == "Bake+GDC":
+                    gdc_ru = getattr(pulse, "gdc_ramp_up", None)
+                    gdc_ss = getattr(pulse, "gdc_steady_state", None)
+                    gdc_rd = getattr(pulse, "gdc_ramp_down", None)
+                    if gdc_ru is not None and gdc_ss is not None and gdc_rd is not None:
+                        sub_start = start_of_pulse + pulse.total_duration * i
+                        milestones.append(sub_start + gdc_ru)  # end of GDC ramp-up
+                        milestones.append(sub_start + gdc_ru + gdc_ss)  # end of GDC steady
+                        milestones.append(sub_start + gdc_ru + gdc_ss + gdc_rd)  # end of GDC ramp-down
+                        milestones.append(sub_start + gdc_ru + gdc_ss + gdc_rd + initial_stepsize_value)  # restart after GDC off
+
             current_time = start_of_pulse + pulse.total_duration * pulse.nb_pulses
 
         return sorted(np.unique(milestones).tolist())
