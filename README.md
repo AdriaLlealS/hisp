@@ -58,7 +58,9 @@ pip install h_transport_materials
 
 The `example/` folder contains a working example based on the HISP paper ([Dunnell et al., 2026](https://arxiv.org/abs/2604.04751)), demonstrating a full simulation of deuterium and tritium retention in iter's first wall and divertor plasma-facing components.
 
-See [`example/README.md`](example/README.md) for a full description of the example, instructions on how to run it, and comparison plots against the published results.
+This example includes the results for a single bin under a specific scenario, along with a simple plotting script to visualise the outputs and the corresponding generated plot.
+
+See [`example/README.md`](example/README.md) for a full description of the example and instructions on how to run it.
 
 ## Running Tests
 
