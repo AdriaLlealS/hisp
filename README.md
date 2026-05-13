@@ -54,6 +54,12 @@ pip install --no-deps git+https://github.com/AdriaLlealS/hisp.git@main
 pip install h_transport_materials
 ```
 
+## Examples
+
+The `examples/` folder contains a working example based on the HISP paper ([Dunnell et al., 2026](https://arxiv.org/abs/2604.04751)), demonstrating a full simulation of deuterium and tritium retention in iter's first wall and divertor plasma-facing components.
+
+See [`examples/README.md`](examples/README.md) for a full description of the example, instructions on how to run it, and comparison plots against the published results.
+
 ## Running Tests
 
 With the conda environment active and `PFC_TT_PATH` set:
