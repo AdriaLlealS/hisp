@@ -6,6 +6,8 @@ Hydrogen Inventory Simulations for PFCs (HISP) is a series of code that uses FES
 
 That said, once the core PFC-TT classes are importable (by having a local clone and its conda environment), HISP can also be used independently of PFC-TT's workflow. The [`example/`](example/) folder demonstrates this: bins and scenarios are defined directly in Python and passed to HISP to build and solve a simulation.
 
+For more advanced use cases — including flexible input handling, detailed physics control, or large parameter studies — users are encouraged to work directly with https://github.com/iterorganization/PFC-Tritium-Transport, which provides a more complete and streamlined way to set up and run simulations.
+
 ## What HISP Does
 
 For each bin it constructs a FESTIM simulation: it translates the bin geometry (thickness, optional Cu layer, surface area) into the model domain, assigns material parameters and trap definitions, builds time-dependent boundary conditions and implantation source expressions, and selects appropriate boundary-condition types (Robin/Neumann) before assembling and solving the transport equations with adaptive time-stepping. The per-bin outputs (retained inventory, surface fluxes, concentration profiles, and time traces) are exported to JSON for post-processing or aggregation across bins.
