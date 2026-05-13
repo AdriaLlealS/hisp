@@ -52,3 +52,15 @@ Below is the result for bin 0 — the high-wetted sub-bin of ITER's First Wall
 Panel 1 — run with Scenario A:
 
 ![T inventory for bin 0](results_bin0_W_high_wetted/T_inventory.png)
+
+## Adapting this example for your own simulation
+
+The files in this folder can be used as templates for custom simulations. For any simulation you set up yourself, you need to provide two things: **bin definitions** (geometry, materials, trap parameters) and **binned plasma data files** (fluxes, heat loads, particle energies per bin).
+
+**To define your own bins and materials**, edit `make_iter_bins.py`. The file has two parts:
+
+- **Materials** — defined at the top as `Material` objects. Each material requires a name, atomic density (`Mat_density`), diffusion parameters (`D0`, `E_D`), recombination parameters (`K_R`, `E_R`), and a list of `Trap` objects with their density (atomic fraction), trapping and detrapping rate prefactors (`k_0`, `p_0`) and activation energies (`E_k`, `E_p`). Add or modify materials here to match your reactor's PFC materials.
+
+- **Bin table** (`_BIN_DATA`) — each row defines one bin with its poloidal coordinates (`z_start`, `r_start`, `z_end`, `r_end`), material name, thickness, copper backing thickness, wetted mode, surface areas, and boundary condition types. Modify the rows to match your reactor geometry, or add new rows for additional bins. Each bin must reference a material defined in the materials block above.
+
+**To provide your own plasma data**, you need to supply binned flux data files for each pulse type in your scenario — containing ion and atom fluxes, particle energies, and heat loads for each bin. The `data/` folder contains the files used in this example and serves as a reference for the expected format. These files are assigned to each pulse type inside the scenario file — look for the data file path assignments at the top of `scenarioA.py` as a template. Every bin defined in `make_iter_bins.py` must have a corresponding entry in the binned flux data files.
