@@ -1,4 +1,4 @@
-# Example: ITER tritium retention simulation
+# Example: ITER PFCs tritium retention simulation
 
 This folder recreates the bin definitions and operational scenarios shown in the
 paper below. It demonstrates how to:
@@ -17,10 +17,10 @@ Reference:
 
 | File | Purpose |
 |------|---------|
-| `make_iter_bins.py` | Creates 94 Bin objects (62 poloidal segments × wetted modes) matching ITER Scenario A |
-| `scenarioA.py` | 9 FP + 1 FP (4-day wait) + bake at 483 K |
-| `scenarioB.py` | 10 FP + 2-day GDC + bake |
-| `scenarioC.py` | 5 DT + 1 DD + 5 DT + 1 DD + 2-day GDC + bake |
+| `make_iter_bins.py` | Creates 94 Bin objects (62 poloidal segments × wetted modes) based on the configuration described in the HISP paper |
+| `scenarioA.py` | Defines a plasma operation scenario consisting of: 10 FP,DT pulses + STM (4-day wait) + bake |
+| `scenarioB.py` | Defines a plasma operation scenario consisting of: 10 FP,DT pulses + 2-day GDC + bake |
+| `scenarioC.py` | Defines a plasma operation scenario consisting of: 5 FP,DT pulses + 1 DD pulse + 5 FP,DT pulses + 1 DD pulse + 2-day GDC + bake |
 | `run_single_bin.py` | Main script — runs one bin with a chosen scenario |
 | `plot_T_inventory.py` | Plots tritium inventory from results JSON |
 | `data/` | Binned plasma flux data (ion/atom fluxes, energies, heat loads per bin) |
