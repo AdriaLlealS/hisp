@@ -2,21 +2,21 @@
 
 Hydrogen Inventory Simulations for PFCs (HISP) is a series of code that uses FESTIM to simulate deuterium and tritium inventories in a fusion tokamak first wall and divertor PFCs.
 
-## This Version / Origin
+**This fork** reworks HISP to serve as the FESTIM orchestrator for [PFC-Tritium-Transport](https://github.com/iterorganization/PFC-Tritium-Transport) (PFC-TT): it receives bin objects, material properties, scenarios, and plasma data from PFC-TT and builds the corresponding FESTIM simulations. PFC-TT owns all physics definitions, inputs, and user control.
 
-This repository is a modified version of the original `hisp` project initially developed by Kaelyn Dunnell at MIT. This particular fork was developed by Adrià Lleal during an internship at the ITER Organization and has been adapted to work with a more open and general `PFC-Tritium-Transport` workflow. It is tailored for estimations of tritium/hydrogen retention on fusion reactor plasma-facing components.
+That said, once the core PFC-TT classes are importable (by having a local clone and its conda environment), HISP can also be used independently of PFC-TT's workflow. The [`example/`](example/) folder demonstrates this: bins and scenarios are defined directly in Python and passed to HISP to build and solve a simulation.
 
 ## What HISP Does
 
-HISP receives bin definitions, material properties, time-dependent particle fluxes and heat loads, and a scenario specification (pulses, durations, repetition) — typically provided by `PFC-Tritium-Transport` via a CSV input table. For each bin it constructs a FESTIM simulation: it translates the bin geometry (start/end coordinates, thickness, optional Cu layer and surface area) into the model domain, assigns material parameters from a CSV materials input table, builds time-dependent boundary conditions and source/flux expressions, and selects appropriate boundary-condition types (Robin/Neumann) before assembling and solving the transport equations with FESTIM. The per-bin outputs (surface concentrations, retained inventory, implanted fractions, and time traces) are exported so they can be analysed individually or aggregated across bins for inventory estimates.
+For each bin it constructs a FESTIM simulation: it translates the bin geometry (thickness, optional Cu layer, surface area) into the model domain, assigns material parameters and trap definitions, builds time-dependent boundary conditions and implantation source expressions, and selects appropriate boundary-condition types (Robin/Neumann) before assembling and solving the transport equations with adaptive time-stepping. The per-bin outputs (retained inventory, surface fluxes, concentration profiles, and time traces) are exported to JSON for post-processing or aggregation across bins.
 
 ## Dependencies
 
 HISP depends on:
-- [FESTIM](https://github.com/festim-dev/festim) — finite element solver for hydrogen transport, installed automatically via the PFC-TT conda environment
-- [PFC-Tritium-Transport](https://github.com/iterorganization/PFC-Tritium-Transport) — provides bin definitions, material classes, scenario handling, and plasma data. It cannot be run without a local clone of that repository.
+- [FESTIM](https://github.com/festim-dev/festim) — finite element solver for hydrogen transport
+- [PFC-Tritium-Transport](https://github.com/iterorganization/PFC-Tritium-Transport) — provides bin definitions, material classes, scenario handling, and plasma data
 
-All dependencies are installed as part of the PFC-Tritium-Transport setup instructions below.
+Both are installed as part of the PFC-TT conda environment (see below).
 
 ## How to Install
 
@@ -36,7 +36,7 @@ conda activate PFC-TT
 ```
 
 ### 3. Register the PFC-TT path
-HISP imports bin definitions, material classes, and scenario handling directly from this repository at runtime. For this to work, HISP needs to know where PFC-Tritium-Transport is located on your system. Register the path once in your conda environment (replace with your actual clone location):
+HISP needs to know where PFC-Tritium-Transport is located on your system at runtime. Register the path once in your conda environment (replace with your actual clone location):
 ```bash
 conda env config vars set PFC_TT_PATH="/path/to/your/PFC-Tritium-Transport"
 conda deactivate && conda activate PFC-TT
@@ -67,3 +67,11 @@ With the conda environment active and `PFC_TT_PATH` set:
 cd /path/to/hisp
 python -m pytest tests/ -v
 ```
+
+## Development History
+
+The first prototype (2024) was a single framework that combined simulation setup and solver execution, using MHIMS as the hydrogen isotope transport solver.
+
+In early 2025 MHIMS was replaced by FESTIM for improved computational efficiency, and the codebase was split into two repositories — PFC-TT and HISP. However, at this stage HISP still contained significant physics logic and hard-coded inputs (pulse definitions, time-dependent functions, boundary-condition selection, material parameters), so the separation was incomplete.
+
+A subsequent major refactor completed the separation: all physics logic and hard-coded inputs were moved out of HISP into PFC-TT, while solver-specific responsibilities (meshing, temperature modelling, boundary-condition assembly) were consolidated in HISP. Hard-coded values were replaced with flexible, physics-based descriptions (energy-dependent implantation depths, user-defined baking/cooling temperatures), new boundary-condition types were supported at both surfaces, and the latest FESTIM release was integrated. On the usage side, PFC-TT introduced an input-folder methodology for straightforward simulation setup, along with improved documentation and support for reactor PFC binning. These developments led to the present versions of both codes.

@@ -46,7 +46,7 @@ Results are saved as JSON in `results_binN_<material>_<mode>/`.
 `plot_T_inventory.py` reads the results JSON and plots the total tritium
 inventory over time, decomposed into its mobile and trapped contributions
 (one curve per trap). This gives a clear view of how retention evolves
-through the pulse sequence and where tritium accumulates within the material.
+through the pulse sequence and the baking.
 
 Below is the result for bin 0 — the high-wetted sub-bin of ITER's First Wall
 Panel 1 — run with Scenario A:
