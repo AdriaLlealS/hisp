@@ -985,7 +985,7 @@ def make_temperature_function(
             if callable(fn)
         }
 
-    def _evaluate_custom_temperature_model(model_fn: Callable, x_position, heat_flux: float, pulse, t_rel: float):
+    def _evaluate_custom_temperature_model(model_fn: Callable, x_position, heat_flux: float, heat_flux_peak: float, pulse, t_rel: float, t_abs: float):
         """
         Evaluate a custom model with keyword-based compatibility.
 
@@ -996,12 +996,14 @@ def make_temperature_function(
         available_kwargs = {
             "x": x_position,
             "heat_flux": heat_flux,
+            "heat_flux_peak": heat_flux_peak,
             "coolant_temp": coolant_temp,
             "thickness": bin.thickness,
             "copper_thickness": getattr(bin, "copper_thickness", getattr(bin, "cu_thickness", None)),
             "bin": bin,
             "pulse": pulse,
             "t": t_rel,
+            "t_abs": t_abs,
             "scenario": scenario,
             "plasma_data_handling": plasma_data_handling,
         }
@@ -1055,6 +1057,12 @@ def make_temperature_function(
             heat_flux = plasma_data_handling.get_heat(
                 pulse, bin, relative_time_within_pulse
             )
+
+            t_peak = pulse.ramp_up + pulse.steady_state / 2
+            heat_flux_peak = plasma_data_handling.get_heat(
+                pulse, bin, t_peak
+            )
+
             # Handle both string materials and Material objects
             material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
             material_name_key = str(material_name).upper()
@@ -1064,8 +1072,10 @@ def make_temperature_function(
                     custom_models[material_name_key],
                     x_position=x[0],
                     heat_flux=heat_flux,
+                    heat_flux_peak = heat_flux_peak,
                     pulse=pulse,
                     t_rel=relative_time_within_pulse,
+                    t_abs = t,
                 )
                 if np.isscalar(custom_value):
                     value = np.full_like(x[0], float(custom_value))
