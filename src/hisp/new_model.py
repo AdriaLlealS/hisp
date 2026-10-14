@@ -170,13 +170,14 @@ class NewModel:
                 # start of next sub-pulse
                 milestones.append(start_of_pulse + pulse.total_duration * (i + 1))
 
-                # before the end of waiting period
-                assert pulse.total_duration - pulse.duration_no_waiting >= 10
-                milestones.append(start_of_pulse + pulse.total_duration * (i + 1) - 10)
-                milestones.append(start_of_pulse + pulse.total_duration * (i + 1) - 2)
+                if pulse.total_duration - pulse.duration_no_waiting > 0:
+                    # before the end of waiting period
+                    assert pulse.total_duration - pulse.duration_no_waiting >= 10
+                    milestones.append(start_of_pulse + pulse.total_duration * (i + 1) - 10)
+                    milestones.append(start_of_pulse + pulse.total_duration * (i + 1) - 2)
 
-                # start of waiting for this sub-pulse
-                milestones.append(start_of_pulse + pulse.total_duration * i + pulse.duration_no_waiting)
+                    # start of waiting for this sub-pulse
+                    milestones.append(start_of_pulse + pulse.total_duration * i + pulse.duration_no_waiting)
 
                 # RISP special anchor
                 if getattr(pulse, "pulse_type", None) == "RISP":
@@ -196,6 +197,13 @@ class NewModel:
                         milestones.append(sub_start + gdc_ru + gdc_ss + gdc_rd)  # end of GDC ramp-down
                         milestones.append(sub_start + gdc_ru + gdc_ss + gdc_rd + initial_stepsize_value)  # restart after GDC off
 
-            current_time = start_of_pulse + pulse.total_duration * pulse.nb_pulses
+                # Timing-defined pulses: add milestones at every breakpoint and reset step size
+                if getattr(pulse, "pulse_def", None) == "timing":
+                    for timing in (getattr(pulse, "timing_flux", []) + getattr(pulse, "timing_heat", [])):
+                        t_milestone = start_of_pulse + pulse.total_duration * i + timing
+                        milestones.append(t_milestone)
+                        milestones.append(t_milestone + 1e-2)
 
+            current_time = start_of_pulse + pulse.total_duration * pulse.nb_pulses
+            
         return sorted(np.unique(milestones).tolist())

@@ -985,7 +985,7 @@ def make_temperature_function(
             if callable(fn)
         }
 
-    def _evaluate_custom_temperature_model(model_fn: Callable, x_position, heat_flux: float, pulse, t_rel: float):
+    def _evaluate_custom_temperature_model(model_fn: Callable, x_position, heat_flux: float, heat_flux_peak: float, pulse, t_rel: float, t_abs: float):
         """
         Evaluate a custom model with keyword-based compatibility.
 
@@ -996,12 +996,14 @@ def make_temperature_function(
         available_kwargs = {
             "x": x_position,
             "heat_flux": heat_flux,
+            "heat_flux_peak": heat_flux_peak,
             "coolant_temp": coolant_temp,
             "thickness": bin.thickness,
             "copper_thickness": getattr(bin, "copper_thickness", getattr(bin, "cu_thickness", None)),
             "bin": bin,
             "pulse": pulse,
             "t": t_rel,
+            "t_abs": t_abs,
             "scenario": scenario,
             "plasma_data_handling": plasma_data_handling,
         }
@@ -1055,6 +1057,12 @@ def make_temperature_function(
             heat_flux = plasma_data_handling.get_heat(
                 pulse, bin, relative_time_within_pulse
             )
+
+            t_peak = pulse.ramp_up + pulse.steady_state / 2
+            heat_flux_peak = plasma_data_handling.get_heat(
+                pulse, bin, t_peak
+            )
+
             # Handle both string materials and Material objects
             material_name = bin.material.name if hasattr(bin.material, 'name') else bin.material
             material_name_key = str(material_name).upper()
@@ -1064,8 +1072,10 @@ def make_temperature_function(
                     custom_models[material_name_key],
                     x_position=x[0],
                     heat_flux=heat_flux,
+                    heat_flux_peak = heat_flux_peak,
                     pulse=pulse,
                     t_rel=relative_time_within_pulse,
+                    t_abs = t,
                 )
                 if np.isscalar(custom_value):
                     value = np.full_like(x[0], float(custom_value))
@@ -1200,28 +1210,50 @@ def build_ufl_flux_expression(occurrences, value_off=0.0):
                 in_window = And(ge(t, start), lt(t, end))
                 t_rel = t - start
 
-                # For Bake+GDC: use GDC sub-timing for flux ramp profile
-                if p.pulse_type == "Bake+GDC" and getattr(p, 'gdc_ramp_up', None) is not None:
-                    ru = p.gdc_ramp_up
-                    ss = p.gdc_steady_state
-                    rd = p.gdc_ramp_down
+                if p.pulse_def == "timing":
+                    pulse_flux = value_off
+
+                    for i in range(len(p.timing_flux) - 1):
+                        t0 = p.timing_flux[i]
+                        t1 = p.timing_flux[i + 1]
+                        f0 = p.fraction_flux[i]
+                        f1 = p.fraction_flux[i + 1]
+
+                        segment_cond = And(ge(t_rel, t0), lt(t_rel, t1))
+
+                        slope = (f1 - f0) / (t1 - t0)
+                        # Linear segment expression for flux between t0 and t1
+                        segment_expr = occ[flux_key] * (f0 + slope * (t_rel - t0))
+
+                        pulse_flux += conditional(segment_cond, segment_expr, 0.0,)
+
+                    expr += conditional(in_window, pulse_flux, 0.0)
+
+                    continue
+
                 else:
-                    ru = p.ramp_up
-                    ss = p.steady_state
-                    rd = p.ramp_down
+                    # For Bake+GDC: use GDC sub-timing for flux ramp profile
+                    if p.pulse_type == "Bake+GDC" and getattr(p, 'gdc_ramp_up', None) is not None:
+                        ru = p.gdc_ramp_up
+                        ss = p.gdc_steady_state
+                        rd = p.gdc_ramp_down
+                    else:
+                        ru = p.ramp_up
+                        ss = p.steady_state
+                        rd = p.ramp_down
 
-                ramp_up_cond = lt(t_rel, ru)
-                steady_cond = And(ge(t_rel, ru), lt(t_rel, ru + ss))
+                    ramp_up_cond = lt(t_rel, ru)
+                    steady_cond = And(ge(t_rel, ru), lt(t_rel, ru + ss))
 
-                # Ramp-up and ramp-down expressions
-                ramp_up_expr = (occ[flux_key] - value_off) / ru * t_rel + value_off if ru > 0 else occ[flux_key]
-                ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / rd * (t_rel - (ru + ss)) if rd > 0 else occ[flux_key]
-                ramp_down_expr = conditional(ge(ramp_down_raw, value_off), ramp_down_raw, value_off)
+                    # Ramp-up and ramp-down expressions
+                    ramp_up_expr = (occ[flux_key] - value_off) / ru * t_rel + value_off if ru > 0 else occ[flux_key]
+                    ramp_down_raw = occ[flux_key] - (occ[flux_key] - value_off) / rd * (t_rel - (ru + ss)) if rd > 0 else occ[flux_key]
+                    ramp_down_expr = conditional(ge(ramp_down_raw, value_off), ramp_down_raw, value_off)
 
-                pulse_flux = conditional(ramp_up_cond, ramp_up_expr,
-                                         conditional(steady_cond, occ[flux_key], ramp_down_expr))
+                    pulse_flux = conditional(ramp_up_cond, ramp_up_expr,
+                                            conditional(steady_cond, occ[flux_key], ramp_down_expr))
 
-                expr += conditional(in_window, pulse_flux, 0.0)
+                    expr += conditional(in_window, pulse_flux, 0.0)
             return expr
         return flux_builder
 
